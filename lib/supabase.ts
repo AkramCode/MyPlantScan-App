@@ -1,93 +1,162 @@
-import 'react-native-url-polyfill/auto';
-import { createClient } from '@supabase/supabase-js';
-import { Platform } from 'react-native';
+const DEFAULT_BACKEND_URL = 'https://myplantscan-backend.vercel.app';
 
-// Simple storage adapter for Supabase
-const storage = {
-  getItem: async (key: string) => {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
-    } else {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      return await AsyncStorage.getItem(key);
-    }
-  },
-  setItem: async (key: string, value: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-    } else {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      await AsyncStorage.setItem(key, value);
-    }
-  },
-  removeItem: async (key: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
-    } else {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      await AsyncStorage.removeItem(key);
-    }
-  },
+const getBackendBaseUrl = () => {
+  const configured = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (configured && configured.trim().length > 0) {
+    return configured.replace(/\/$/, '');
+  }
+  return DEFAULT_BACKEND_URL;
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://fake-project.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZha2UtcHJvamVjdCIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjQ1MTk4NDAwLCJleHAiOjE5NjA3NzQ0MDB9.fake-anon-key';
+const baseUrl = getBackendBaseUrl();
 
-if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
-  console.warn('Using fake Supabase credentials. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your environment variables for production.');
+export type BackendError = {
+  message: string;
+  status?: number;
+};
+
+export type AuthSession = {
+  access_token: string;
+  refresh_token: string;
+  expires_in?: number;
+  expires_at?: number;
+  token_type?: string;
+};
+
+export type AuthUser = {
+  id: string;
+  email: string | null;
+  role?: string;
+  aud?: string;
+  [key: string]: unknown;
+};
+
+export type Profile = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ProfileUpdate = Partial<Omit<Profile, 'id' | 'email'>> & {
+  id: string;
+  email: string;
+};
+
+async function request<T>(
+  path: string,
+  {
+    method = 'GET',
+    body,
+    accessToken,
+  }: {
+    method?: 'GET' | 'POST' | 'PUT';
+    body?: Record<string, unknown>;
+    accessToken?: string;
+  } = {}
+): Promise<{ data: T | null; error: BackendError | null }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const maybeJson = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const message = (maybeJson as Record<string, unknown> | null)?.error;
+      return {
+        data: null,
+        error: {
+          message: typeof message === 'string' ? message : `Request failed (${response.status})`,
+          status: response.status,
+        },
+      };
+    }
+
+    return {
+      data: maybeJson as T,
+      error: null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Network error';
+    return {
+      data: null,
+      error: { message },
+    };
+  }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: storage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+export async function signIn(email: string, password: string) {
+  return request<{ session: AuthSession | null; user: AuthUser | null }>('/api/auth/sign-in', {
+    method: 'POST',
+    body: { email, password },
+  });
+}
 
-export type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: {
-          id: string;
-          email: string;
-          full_name: string | null;
-          avatar_url: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          email: string;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          email?: string;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-  };
-};
+export async function signUp(email: string, password: string, fullName?: string) {
+  return request<{ session: AuthSession | null; user: AuthUser | null }>('/api/auth/sign-up', {
+    method: 'POST',
+    body: { email, password, fullName },
+  });
+}
 
-export type Profile = Database['public']['Tables']['profiles']['Row'];
-export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
-export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+export async function signOut(accessToken: string) {
+  return request<{ success: boolean }>('/api/auth/sign-out', {
+    method: 'POST',
+    body: { accessToken },
+    accessToken,
+  });
+}
+
+export async function resetPassword(email: string, redirectTo?: string) {
+  return request<{ success: boolean }>('/api/auth/reset-password', {
+    method: 'POST',
+    body: { email, redirectTo },
+  });
+}
+
+export async function refreshSession(refreshToken: string) {
+  return request<{ session: AuthSession | null; user: AuthUser | null }>('/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken },
+  });
+}
+
+export async function getUser(accessToken: string) {
+  return request<{ user: AuthUser }>('/api/auth/session', {
+    method: 'POST',
+    body: { accessToken },
+    accessToken,
+  });
+}
+
+export async function getProfile(accessToken: string, userId: string) {
+  return request<{ profile: Profile }>(`/api/profiles/${userId}`, {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+export async function upsertProfile(accessToken: string, profile: ProfileUpdate) {
+  const { id, email, ...rest } = profile;
+  return request<{ profile: Profile }>(`/api/profiles/${id}`, {
+    method: 'PUT',
+    body: {
+      email,
+      ...rest,
+    },
+    accessToken,
+  });
+}

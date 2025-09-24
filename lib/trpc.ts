@@ -1,25 +1,26 @@
 import { createTRPCReact } from "@trpc/react-query";
 import { httpLink } from "@trpc/client";
-import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
+
+type AppRouter = Record<string, unknown>;
 
 export const trpc = createTRPCReact<AppRouter>();
 
-const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
-    return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
-  }
+const DEFAULT_BACKEND_URL = "https://myplantscan-backend.vercel.app";
 
-  throw new Error(
-    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
-  );
+const getBaseUrl = () => {
+  const configured = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (configured && configured.trim().length > 0) {
+    return configured.replace(/\/$/, "");
+  }
+  return DEFAULT_BACKEND_URL;
 };
 
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
       url: `${getBaseUrl()}/api/trpc`,
-      transformer: superjson,
     }),
   ],
+  transformer: superjson,
 });

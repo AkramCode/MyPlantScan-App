@@ -8,10 +8,11 @@ import { router } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 import AuthScreen from '@/components/AuthScreen';
 import ProfileModal from '@/components/ProfileModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MoreScreen() {
   const { identifications, userPlants, healthRecords } = usePlantStore();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAuthScreen, setShowAuthScreen] = useState(false);
@@ -34,7 +35,7 @@ export default function MoreScreen() {
                 localStorage.removeItem('plant_health_records');
                 localStorage.removeItem('user_plants');
               } else {
-                const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
                 await AsyncStorage.multiRemove([
                   'plant_identifications',
                   'plant_health_records',
@@ -56,7 +57,7 @@ export default function MoreScreen() {
   const handleShare = async () => {
     try {
       const shareContent = {
-        message: 'Check out MyPlantScan! 🌱 AI-powered plant identification and health analysis app. Discover and care for plants like never before!',
+        message: 'Check out MyPlantScan! AI-powered plant identification and health analysis app. Discover and care for plants like never before!',
         title: 'MyPlantScan - AI Plant Identification',
         url: Platform.OS === 'web' ? window.location.href : undefined,
       };
@@ -114,7 +115,7 @@ export default function MoreScreen() {
   const handleHelp = () => {
     Alert.alert(
       'Help & Tips',
-      'For the best plant identification results:\n\n📸 Photography Tips:\n• Take clear, well-lit photos\n• Focus on leaves, flowers, and distinctive features\n• Avoid blurry or dark images\n• Include multiple angles when possible\n\n🌱 Plant Health Analysis:\n• Capture the affected area clearly\n• Show the entire plant for context\n• Take photos in natural light\n\n💡 General Tips:\n• Clean your camera lens\n• Hold the phone steady\n• Get close to the plant\n• Avoid shadows on the subject',
+      'For the best plant identification results:\\n\\nPhotography Tips:\\n- Take clear, well-lit photos\\n- Focus on leaves, flowers, and distinctive features\\n- Avoid blurry or dark images\\n- Include multiple angles when possible\\n\\nPlant Health Analysis:\\n- Capture the affected area clearly\\n- Show the entire plant for context\\n- Take photos in natural light\\n\\nGeneral Tips:\\n- Clean your camera lens\\n- Hold the phone steady\\n- Get close to the plant\\n- Avoid shadows on the subject',
       [
         { text: 'Contact Support', onPress: handleContactSupport },
         { text: 'OK', style: 'cancel' }
@@ -162,7 +163,7 @@ export default function MoreScreen() {
   const handleAbout = () => {
     Alert.alert(
       'About MyPlantScan',
-      'MyPlantScan uses advanced AI technology powered by Google Gemini to identify plants and analyze their health. Our mission is to help everyone connect with nature and care for plants better.\n\n🌟 Features:\n• AI-powered plant identification\n• Plant health analysis\n• Personal plant garden\n• Care recommendations\n• Detailed plant information\n\n🤖 Technology:\nPowered by Google Gemini 2.5 Flash\n\n📱 Version: 1.0.0\n\n© 2024 MyPlantScan. All rights reserved.',
+      'MyPlantScan uses advanced AI technology powered by Google Gemini to identify plants and analyze their health. Our mission is to help everyone connect with nature and care for plants better.\\n\\nFeatures:\\n- AI-powered plant identification\\n- Plant health analysis\\n- Personal plant garden\\n- Care recommendations\\n- Detailed plant information\\n\\nTechnology:\\nPowered by Google Gemini 2.5 Flash\\n\\nVersion: 1.0.0\\n\\nCopyright 2024 MyPlantScan. All rights reserved.',
       [
         { text: 'Privacy Policy', onPress: handlePrivacyPolicy },
         { text: 'Terms of Service', onPress: handleTermsOfService },
@@ -541,7 +542,7 @@ export default function MoreScreen() {
             onPress={() => setShowAuthScreen(false)}
             testID="close-auth-screen"
           >
-            <Text style={styles.authCloseText}>×</Text>
+            <Text style={styles.authCloseText}>X</Text>
           </TouchableOpacity>
         </View>
       )}

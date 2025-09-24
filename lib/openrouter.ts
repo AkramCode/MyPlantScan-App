@@ -1,4 +1,4 @@
-// OpenRouter API service for Gemini models
+import 'react-native-url-polyfill/auto';
 
 interface OpenRouterMessage {
   role: 'system' | 'user' | 'assistant';
@@ -19,16 +19,23 @@ interface OpenRouterRequest {
   top_p?: number;
 }
 
-interface OpenRouterResponse {
-  choices: Array<{
-    message: {
-      content: string;
+interface BackendAIResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
     };
   }>;
 }
 
-const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_BACKEND_URL = 'https://myplantscan-backend.vercel.app';
+
+const getBackendBaseUrl = () => {
+  const configured = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (configured && configured.trim().length > 0) {
+    return configured.replace(/\/$/, '');
+  }
+  return DEFAULT_BACKEND_URL;
+};
 
 // Available Gemini models on OpenRouter
 export const GEMINI_MODELS = {
@@ -41,16 +48,47 @@ export const GEMINI_MODELS = {
 } as const;
 
 class OpenRouterService {
-  private apiKey: string;
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = OPENROUTER_API_KEY || '';
-    this.baseUrl = OPENROUTER_BASE_URL;
-    
-    if (!this.apiKey) {
-      console.warn('OpenRouter API key not found. Please set EXPO_PUBLIC_OPENROUTER_API_KEY in your environment variables.');
+    this.baseUrl = getBackendBaseUrl();
+  }
+
+  private async postToBackend<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Backend AI request failed:', {
+          url,
+          status: response.status,
+          error: errorText,
+        });
+        throw new Error(`AI request failed (${response.status}): ${errorText}`);
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      console.error('Error calling backend AI service:', error);
+      throw error;
     }
+  }
+
+  private extractContent(response: BackendAIResponse): string {
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('No AI response content received from backend');
+    }
+    return content;
   }
 
   async generateText({
@@ -64,10 +102,6 @@ class OpenRouterService {
     maxTokens?: number;
     temperature?: number;
   }): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error('OpenRouter API key is required');
-    }
-
     const request: OpenRouterRequest = {
       model,
       messages,
@@ -76,42 +110,15 @@ class OpenRouterService {
       top_p: 1,
     };
 
-    console.log('OpenRouter request:', {
+    console.log('Sending chat request to backend AI service:', {
       model,
       messageCount: messages.length,
       maxTokens,
       temperature,
     });
 
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://myplantscan.app',
-          'X-Title': 'MyPlantScan',
-        },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenRouter API error:', response.status, errorText);
-        throw new Error(`OpenRouter API request failed: ${response.status} - ${errorText}`);
-      }
-
-      const result: OpenRouterResponse = await response.json();
-      
-      if (!result.choices || result.choices.length === 0) {
-        throw new Error('No response from OpenRouter API');
-      }
-
-      return result.choices[0].message.content;
-    } catch (error) {
-      console.error('OpenRouter API error:', error);
-      throw error;
-    }
+    const result = await this.postToBackend<BackendAIResponse>('/api/ai/chat', request);
+    return this.extractContent(result);
   }
 
   async analyzeImage({
@@ -123,25 +130,13 @@ class OpenRouterService {
     prompt: string;
     model?: string;
   }): Promise<string> {
-    const messages: OpenRouterMessage[] = [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: prompt,
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:image/jpeg;base64,${imageBase64}`,
-            },
-          },
-        ],
-      },
-    ];
+    const result = await this.postToBackend<BackendAIResponse>('/api/ai/analyze-image', {
+      imageBase64,
+      prompt,
+      model,
+    });
 
-    return this.generateText({ model, messages });
+    return this.extractContent(result);
   }
 
   async identifyPlant(imageBase64: string): Promise<string> {
@@ -208,7 +203,13 @@ Provide a comprehensive health analysis in valid JSON format:
 
 Be thorough and provide actionable advice. If the plant appears healthy, still provide preventive care recommendations.`;
 
-    return this.analyzeImage({ imageBase64, prompt });
+    const result = await this.postToBackend<BackendAIResponse>('/api/health/report', {
+      imageBase64,
+      prompt,
+      model: GEMINI_MODELS.FLASH_IMAGE_PREVIEW,
+    });
+
+    return this.extractContent(result);
   }
 }
 

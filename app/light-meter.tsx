@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
-  Platform,
+
 } from 'react-native';
 import {
   ArrowLeft,
@@ -275,7 +275,7 @@ export default function LightMeterScreen() {
                 </View>
                 {currentReading.tips.map((tip, index) => (
                   <Text key={`tip-${index}-${tip.slice(0, 10)}`} style={styles.tipText}>
-                    • {tip}
+                    â€¢ {tip}
                   </Text>
                 ))}
               </View>

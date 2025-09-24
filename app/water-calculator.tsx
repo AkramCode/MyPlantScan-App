@@ -46,12 +46,12 @@ export default function WaterCalculatorScreen() {
   const [result, setResult] = useState<WateringResult | null>(null);
 
   const plantTypes = [
-    { key: 'succulent', label: 'Succulent/Cactus', icon: '🌵' },
-    { key: 'tropical', label: 'Tropical Plants', icon: '🌴' },
-    { key: 'flowering', label: 'Flowering Plants', icon: '🌸' },
-    { key: 'foliage', label: 'Foliage Plants', icon: '🌿' },
-    { key: 'herb', label: 'Herbs', icon: '🌱' },
-    { key: 'fern', label: 'Ferns', icon: '🌿' },
+    { key: 'succulent', label: 'Succulent/Cactus', icon: 'ðŸŒµ' },
+    { key: 'tropical', label: 'Tropical Plants', icon: 'ðŸŒ´' },
+    { key: 'flowering', label: 'Flowering Plants', icon: 'ðŸŒ¸' },
+    { key: 'foliage', label: 'Foliage Plants', icon: 'ðŸŒ¿' },
+    { key: 'herb', label: 'Herbs', icon: 'ðŸŒ±' },
+    { key: 'fern', label: 'Ferns', icon: 'ðŸŒ¿' },
   ];
 
   const potSizes = [
@@ -238,7 +238,7 @@ export default function WaterCalculatorScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text style={styles.description}>
-            Get personalized watering recommendations based on your plant's specific needs and environment.
+            Get personalized watering recommendations based on your plant&apos;s specific needs and environment.
           </Text>
 
           {renderSelector('Plant Type', plantTypes, plantType, (value) => setPlantType(value as PlantType))}
@@ -255,7 +255,7 @@ export default function WaterCalculatorScreen() {
               <View style={styles.inputContainer}>
                 <View style={styles.inputLabel}>
                   <Thermometer size={16} color="#6B7280" />
-                  <Text style={styles.inputLabelText}>Temperature (°C)</Text>
+                  <Text style={styles.inputLabelText}>Temperature (Â°C)</Text>
                 </View>
                 <TextInput
                   style={styles.textInput}
@@ -318,7 +318,7 @@ export default function WaterCalculatorScreen() {
                 </View>
                 {result.tips.map((tip, index) => (
                   <Text key={`tip-${index}-${tip.slice(0, 10)}`} style={styles.tipText}>
-                    • {tip}
+                    â€¢ {tip}
                   </Text>
                 ))}
               </View>

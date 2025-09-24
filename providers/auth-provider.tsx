@@ -1,8 +1,21 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Session, User, AuthError } from '@supabase/supabase-js';
-import { supabase, Profile } from '@/lib/supabase';
 import createContextHook from '@nkzw/create-context-hook';
 import { Platform } from 'react-native';
+import {
+  signIn as backendSignIn,
+  signUp as backendSignUp,
+  signOut as backendSignOut,
+  resetPassword as backendResetPassword,
+  refreshSession as backendRefreshSession,
+  getUser as backendGetUser,
+  getProfile as backendGetProfile,
+  upsertProfile as backendUpsertProfile,
+  type AuthSession,
+  type AuthUser,
+  type Profile,
+  type ProfileUpdate,
+  type BackendError,
+} from '@/lib/supabase';
 
 const clearStorageData = async () => {
   try {
@@ -10,12 +23,14 @@ const clearStorageData = async () => {
       localStorage.removeItem('plant_identifications');
       localStorage.removeItem('plant_health_records');
       localStorage.removeItem('user_plants');
+      localStorage.removeItem(SESSION_STORAGE_KEY);
     } else {
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       await AsyncStorage.multiRemove([
         'plant_identifications',
         'plant_health_records',
-        'user_plants'
+        'user_plants',
+        SESSION_STORAGE_KEY,
       ]);
     }
   } catch (error) {
@@ -23,265 +38,288 @@ const clearStorageData = async () => {
   }
 };
 
+const SESSION_STORAGE_KEY = 'myplantscan_auth_session';
+
+type AuthError = { message: string };
+
+type AuthResult = { error: AuthError | null };
+
+type StoredSession = AuthSession & { expires_at: number };
+
+const getStorageItem = async (key: string): Promise<string | null> => {
+  if (Platform.OS === 'web') {
+    return localStorage.getItem(key);
+  }
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  return await AsyncStorage.getItem(key);
+};
+
+const setStorageItem = async (key: string, value: string) => {
+  if (Platform.OS === 'web') {
+    localStorage.setItem(key, value);
+    return;
+  }
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  await AsyncStorage.setItem(key, value);
+};
+
+const removeStorageItem = async (key: string) => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem(key);
+    return;
+  }
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  await AsyncStorage.removeItem(key);
+};
+
+const normaliseSession = (session: AuthSession): StoredSession => {
+  const expiresAt = session.expires_at
+    ? session.expires_at
+    : Math.floor(Date.now() / 1000) + (session.expires_in ?? 3600);
+
+  return {
+    ...session,
+    expires_at: expiresAt,
+  };
+};
+
+const isSessionExpired = (session: StoredSession) => {
+  const now = Math.floor(Date.now() / 1000);
+  return session.expires_at - now < 30; // refresh if expiring within 30 seconds
+};
+
 export const [AuthProvider, useAuth] = createContextHook(() => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<StoredSession | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    try {
-      console.log('AuthProvider: Fetching profile for user:', userId);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('AuthProvider: Error fetching profile:', error);
-        if (error.code === 'PGRST116') {
-          console.log('AuthProvider: Profile not found, will be created on first update');
-        }
+  const loadProfile = useCallback(async (accessToken: string, userId: string) => {
+    const { data, error } = await backendGetProfile(accessToken, userId);
+    if (error) {
+      if (error.status === 404) {
+        setProfile(null);
       } else {
-        console.log('AuthProvider: Profile fetched successfully');
-        setProfile(data);
+        console.error('AuthProvider: Error fetching profile:', error.message);
       }
-    } catch (error) {
-      console.error('AuthProvider: Exception fetching profile:', error);
+      return;
     }
+
+    setProfile(data.profile);
   }, []);
+
+  const persistSession = useCallback(async (nextSession: StoredSession | null) => {
+    if (!nextSession) {
+      await removeStorageItem(SESSION_STORAGE_KEY);
+      return;
+    }
+    await setStorageItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+  }, []);
+
+  const bootstrapSession = useCallback(async () => {
+    setLoading(true);
+    try {
+      const stored = await getStorageItem(SESSION_STORAGE_KEY);
+      if (!stored) {
+        return;
+      }
+
+      let parsed: StoredSession | null = null;
+      try {
+        parsed = JSON.parse(stored) as StoredSession;
+      } catch (error) {
+        console.warn('AuthProvider: Failed to parse stored session, clearing.');
+        await removeStorageItem(SESSION_STORAGE_KEY);
+        return;
+      }
+
+      if (!parsed?.access_token) {
+        await removeStorageItem(SESSION_STORAGE_KEY);
+        return;
+      }
+
+      let activeSession = parsed;
+      if (isSessionExpired(parsed) && parsed.refresh_token) {
+        const { data, error } = await backendRefreshSession(parsed.refresh_token);
+        if (error) {
+          console.warn('AuthProvider: Failed to refresh session:', error.message);
+          await removeStorageItem(SESSION_STORAGE_KEY);
+          return;
+        }
+        if (data.session) {
+          activeSession = normaliseSession(data.session);
+        }
+      }
+
+      const { data: userData, error: userError } = await backendGetUser(activeSession.access_token);
+      if (userError) {
+        console.warn('AuthProvider: Failed to fetch user for stored session:', userError.message);
+        await removeStorageItem(SESSION_STORAGE_KEY);
+        return;
+      }
+
+      setSession(activeSession);
+      setUser(userData.user);
+      await loadProfile(activeSession.access_token, userData.user.id);
+      await persistSession(activeSession);
+    } catch (error) {
+      console.error('AuthProvider: bootstrap error:', error);
+      await removeStorageItem(SESSION_STORAGE_KEY);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadProfile, persistSession]);
 
   useEffect(() => {
-    let mounted = true;
+    bootstrapSession();
+  }, [bootstrapSession]);
 
-    async function getInitialSession() {
-      console.log('AuthProvider: Getting initial session...');
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('AuthProvider: Error getting session:', error);
-        } else if (mounted) {
-          console.log('AuthProvider: Initial session:', session?.user?.email || 'No session');
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            await fetchProfile(session.user.id);
-          }
-        }
-      } catch (error) {
-        console.error('AuthProvider: Exception getting session:', error);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    getInitialSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const eventStr = event || 'unknown';
-        const userEmail = session?.user?.email || 'No session';
-        console.log('AuthProvider: Auth state changed:', eventStr, userEmail);
-        
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            await fetchProfile(session.user.id);
-          } else {
-            setProfile(null);
-          }
-          
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription?.unsubscribe();
-    };
-  }, [fetchProfile]);
-
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     if (!email?.trim() || email.length > 254) {
-      return { error: { message: 'Invalid email address' } as AuthError };
+      return { error: { message: 'Invalid email address' } };
     }
     if (!password || password.length < 6 || password.length > 128) {
-      return { error: { message: 'Password must be between 6 and 128 characters' } as AuthError };
+      return { error: { message: 'Password must be between 6 and 128 characters' } };
     }
-    
-    const sanitizedEmail = email.trim().toLowerCase();
-    console.log('AuthProvider: Signing in user:', sanitizedEmail);
-    setLoading(true);
-    
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: sanitizedEmail,
-        password,
-      });
 
+    const sanitizedEmail = email.trim().toLowerCase();
+    setLoading(true);
+
+    try {
+      const { data, error } = await backendSignIn(sanitizedEmail, password);
       if (error) {
-        console.error('AuthProvider: Sign in error:', error);
-      } else {
-        console.log('AuthProvider: Sign in successful');
+        return { error: { message: error.message } };
+      }
+      if (!data.session || !data.user) {
+        return { error: { message: 'Unable to sign in with the provided credentials.' } };
       }
 
-      return { error };
+      const nextSession = normaliseSession(data.session);
+      setSession(nextSession);
+      setUser(data.user);
+      await persistSession(nextSession);
+      await loadProfile(nextSession.access_token, data.user.id);
+
+      return { error: null };
     } catch (error) {
       console.error('AuthProvider: Sign in exception:', error);
-      return { error: error as AuthError };
+      return { error: { message: 'Unable to sign in. Please try again.' } };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadProfile, persistSession]);
 
-  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string): Promise<AuthResult> => {
     if (!email?.trim() || email.length > 254) {
-      return { error: { message: 'Invalid email address' } as AuthError };
+      return { error: { message: 'Invalid email address' } };
     }
     if (!password || password.length < 6 || password.length > 128) {
-      return { error: { message: 'Password must be between 6 and 128 characters' } as AuthError };
+      return { error: { message: 'Password must be between 6 and 128 characters' } };
     }
-    if (fullName && fullName.length > 100) {
-      return { error: { message: 'Full name must be less than 100 characters' } as AuthError };
+    if (!fullName?.trim()) {
+      return { error: { message: 'Full name is required' } };
     }
-    
+
     const sanitizedEmail = email.trim().toLowerCase();
-    const sanitizedFullName = fullName?.trim() || '';
-    console.log('AuthProvider: Signing up user:', sanitizedEmail);
+    const sanitizedName = fullName.trim();
     setLoading(true);
-    
+
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: sanitizedEmail,
-        password,
-        options: {
-          data: {
-            full_name: sanitizedFullName,
-          },
-        },
-      });
-
+      const { data, error } = await backendSignUp(sanitizedEmail, password, sanitizedName);
       if (error) {
-        console.error('AuthProvider: Sign up error:', error);
-      } else if (data.user) {
-        console.log('AuthProvider: Sign up successful, creating profile...');
-        
-        // Create profile record
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: sanitizedFullName || null,
-          });
-
-        if (profileError) {
-          console.error('AuthProvider: Error creating profile:', profileError);
-        } else {
-          console.log('AuthProvider: Profile created successfully');
-        }
+        return { error: { message: error.message } };
       }
 
-      return { error };
+      if (data.session && data.user) {
+        const nextSession = normaliseSession(data.session);
+        setSession(nextSession);
+        setUser(data.user);
+        await persistSession(nextSession);
+        await loadProfile(nextSession.access_token, data.user.id);
+      }
+
+      return { error: null };
     } catch (error) {
       console.error('AuthProvider: Sign up exception:', error);
-      return { error: error as AuthError };
+      return { error: { message: 'Unable to sign up. Please try again.' } };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadProfile, persistSession]);
 
-  const signOut = useCallback(async () => {
-    console.log('AuthProvider: Signing out user');
+  const signOut = useCallback(async (): Promise<AuthResult> => {
+    if (!session) {
+      await clearStorageData();
+      setUser(null);
+      setProfile(null);
+      setSession(null);
+      return { error: null };
+    }
+
     setLoading(true);
-    
     try {
-      const { error } = await supabase.auth.signOut();
-      
+      const { error } = await backendSignOut(session.access_token);
       if (error) {
-        console.error('AuthProvider: Sign out error:', error);
-      } else {
-        console.log('AuthProvider: Sign out successful');
-        // Clear any cached data
-        await clearStorageData();
+        console.error('AuthProvider: Sign out error:', error.message);
       }
-
-      return { error };
     } catch (error) {
       console.error('AuthProvider: Sign out exception:', error);
-      return { error: error as AuthError };
     } finally {
+      await clearStorageData();
+      setUser(null);
+      setProfile(null);
+      setSession(null);
       setLoading(false);
     }
-  }, []);
 
-  const resetPassword = useCallback(async (email: string) => {
+    return { error: null };
+  }, [session]);
+
+  const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
     if (!email?.trim() || email.length > 254) {
-      return { error: { message: 'Invalid email address' } as AuthError };
+      return { error: { message: 'Invalid email address' } };
     }
-    
+
     const sanitizedEmail = email.trim().toLowerCase();
-    console.log('AuthProvider: Resetting password for:', sanitizedEmail);
-    
+
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        sanitizedEmail,
-        {
-          redirectTo: 'myplantscan://reset-password',
-        }
-      );
-
+      const { error } = await backendResetPassword(sanitizedEmail, 'myplantscan://reset-password');
       if (error) {
-        console.error('AuthProvider: Reset password error:', error);
-      } else {
-        console.log('AuthProvider: Reset password email sent');
+        return { error: { message: error.message } };
       }
-
-      return { error };
+      return { error: null };
     } catch (error) {
       console.error('AuthProvider: Reset password exception:', error);
-      return { error: error as AuthError };
+      return { error: { message: 'Unable to send reset instructions. Please try again.' } };
     }
   }, []);
 
-  const updateProfile = useCallback(async (updates: Partial<Profile>) => {
-    if (!user) {
+  const updateProfile = useCallback(async (updates: Partial<Profile>): Promise<{ error: Error | null }> => {
+    if (!session || !user) {
       return { error: new Error('No user logged in') };
     }
 
-    console.log('AuthProvider: Updating profile for user:', user.id);
-    
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email!,
-          ...updates,
-          updated_at: new Date().toISOString(),
-        });
+      const payload: ProfileUpdate = {
+        id: user.id,
+        email: user.email ?? '',
+        full_name: updates.full_name ?? profile?.full_name ?? null,
+        avatar_url: updates.avatar_url ?? profile?.avatar_url ?? null,
+      };
 
+      const { data, error } = await backendUpsertProfile(session.access_token, payload);
       if (error) {
-        console.error('AuthProvider: Update profile error:', error);
-        return { error };
-      } else {
-        console.log('AuthProvider: Profile updated successfully');
-        await fetchProfile(user.id);
-        return { error: null };
+        console.error('AuthProvider: Update profile error:', error.message);
+        return { error: new Error(error.message) };
       }
+
+      setProfile(data.profile);
+      return { error: null };
     } catch (error) {
       console.error('AuthProvider: Update profile exception:', error);
-      return { error: error as Error };
+      return { error: error instanceof Error ? error : new Error('Unable to update profile') };
     }
-  }, [user, fetchProfile]);
+  }, [session, user, profile]);
 
   return useMemo(() => ({
     session,

@@ -9,8 +9,8 @@ import {
   Eye, 
   Activity, 
   Thermometer,
-  Droplets,
-  Sun,
+
+
   Shield,
   TrendingUp,
   Calendar,
@@ -186,7 +186,7 @@ export default function HealthReportScreen() {
                 <View style={styles.diagnosisItem}>
                   <Text style={styles.diagnosisLabel}>Secondary Conditions</Text>
                   {healthRecord.diagnosis.secondaryConditions.map((condition, index) => (
-                    <Text key={index} style={styles.diagnosisValue}>• {condition}</Text>
+                    <Text key={index} style={styles.diagnosisValue}>â€¢ {condition}</Text>
                   ))}
                 </View>
               )}
@@ -219,7 +219,7 @@ export default function HealthReportScreen() {
                 <View style={styles.symptomCategory}>
                   <Text style={styles.symptomCategoryTitle}>Visual Symptoms</Text>
                   {healthRecord.symptoms.visual.map((symptom, index) => (
-                    <Text key={index} style={styles.symptomItem}>• {symptom}</Text>
+                    <Text key={index} style={styles.symptomItem}>â€¢ {symptom}</Text>
                   ))}
                 </View>
               )}
@@ -227,7 +227,7 @@ export default function HealthReportScreen() {
                 <View style={styles.symptomCategory}>
                   <Text style={styles.symptomCategoryTitle}>Physical Symptoms</Text>
                   {healthRecord.symptoms.physical.map((symptom, index) => (
-                    <Text key={index} style={styles.symptomItem}>• {symptom}</Text>
+                    <Text key={index} style={styles.symptomItem}>â€¢ {symptom}</Text>
                   ))}
                 </View>
               )}
@@ -235,7 +235,7 @@ export default function HealthReportScreen() {
                 <View style={styles.symptomCategory}>
                   <Text style={styles.symptomCategoryTitle}>Environmental Indicators</Text>
                   {healthRecord.symptoms.environmental.map((symptom, index) => (
-                    <Text key={index} style={styles.symptomItem}>• {symptom}</Text>
+                    <Text key={index} style={styles.symptomItem}>â€¢ {symptom}</Text>
                   ))}
                 </View>
               )}
@@ -259,7 +259,7 @@ export default function HealthReportScreen() {
                 <View style={styles.causeItem}>
                   <Text style={styles.causeLabel}>Contributing Factors</Text>
                   {healthRecord.causes.contributing.map((cause, index) => (
-                    <Text key={index} style={styles.causeValue}>• {cause}</Text>
+                    <Text key={index} style={styles.causeValue}>â€¢ {cause}</Text>
                   ))}
                 </View>
               )}
@@ -267,7 +267,7 @@ export default function HealthReportScreen() {
                 <View style={styles.causeItem}>
                   <Text style={styles.causeLabel}>Environmental Factors</Text>
                   {healthRecord.causes.environmental.map((cause, index) => (
-                    <Text key={index} style={styles.causeValue}>• {cause}</Text>
+                    <Text key={index} style={styles.causeValue}>â€¢ {cause}</Text>
                   ))}
                 </View>
               )}
@@ -287,7 +287,7 @@ export default function HealthReportScreen() {
                 <View style={styles.treatmentCategory}>
                   <Text style={styles.treatmentCategoryTitle}>Immediate Actions</Text>
                   {healthRecord.treatment.immediate.map((action, index) => (
-                    <Text key={index} style={styles.treatmentItem}>• {action}</Text>
+                    <Text key={index} style={styles.treatmentItem}>â€¢ {action}</Text>
                   ))}
                 </View>
               )}
@@ -295,7 +295,7 @@ export default function HealthReportScreen() {
                 <View style={styles.treatmentCategory}>
                   <Text style={styles.treatmentCategoryTitle}>Short-term Treatment (1-2 weeks)</Text>
                   {healthRecord.treatment.shortTerm.map((action, index) => (
-                    <Text key={index} style={styles.treatmentItem}>• {action}</Text>
+                    <Text key={index} style={styles.treatmentItem}>â€¢ {action}</Text>
                   ))}
                 </View>
               )}
@@ -303,7 +303,7 @@ export default function HealthReportScreen() {
                 <View style={styles.treatmentCategory}>
                   <Text style={styles.treatmentCategoryTitle}>Long-term Care</Text>
                   {healthRecord.treatment.longTerm.map((action, index) => (
-                    <Text key={index} style={styles.treatmentItem}>• {action}</Text>
+                    <Text key={index} style={styles.treatmentItem}>â€¢ {action}</Text>
                   ))}
                 </View>
               )}
@@ -311,7 +311,7 @@ export default function HealthReportScreen() {
                 <View style={styles.treatmentCategory}>
                   <Text style={styles.treatmentCategoryTitle}>Prevention</Text>
                   {healthRecord.treatment.preventive.map((action, index) => (
-                    <Text key={index} style={styles.treatmentItem}>• {action}</Text>
+                    <Text key={index} style={styles.treatmentItem}>â€¢ {action}</Text>
                   ))}
                 </View>
               )}
@@ -334,7 +334,7 @@ export default function HealthReportScreen() {
               <View style={styles.monitoringItem}>
                 <Text style={styles.monitoringLabel}>Key Indicators to Watch</Text>
                 {healthRecord.monitoring.keyIndicators.map((indicator, index) => (
-                  <Text key={index} style={styles.monitoringValue}>• {indicator}</Text>
+                  <Text key={index} style={styles.monitoringValue}>â€¢ {indicator}</Text>
                 ))}
               </View>
               <View style={styles.monitoringItem}>
@@ -354,7 +354,7 @@ export default function HealthReportScreen() {
             </View>
             <View style={styles.sectionContent}>
               {healthRecord.riskFactors.map((risk, index) => (
-                <Text key={index} style={styles.riskItem}>• {risk}</Text>
+                <Text key={index} style={styles.riskItem}>â€¢ {risk}</Text>
               ))}
             </View>
           </View>
@@ -372,7 +372,7 @@ export default function HealthReportScreen() {
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Issues Identified</Text>
                   {healthRecord.issues.map((issue, index) => (
-                    <Text key={index} style={styles.summaryValue}>• {issue}</Text>
+                    <Text key={index} style={styles.summaryValue}>â€¢ {issue}</Text>
                   ))}
                 </View>
               )}
@@ -380,7 +380,7 @@ export default function HealthReportScreen() {
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>General Recommendations</Text>
                   {healthRecord.recommendations.map((rec, index) => (
-                    <Text key={index} style={styles.summaryValue}>• {rec}</Text>
+                    <Text key={index} style={styles.summaryValue}>â€¢ {rec}</Text>
                   ))}
                 </View>
               )}
