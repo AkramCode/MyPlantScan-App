@@ -125,47 +125,118 @@ class OpenRouterService {
     imageBase64,
     prompt,
     model = GEMINI_MODELS.FLASH_IMAGE_PREVIEW,
+    maxTokens = 2000,
   }: {
     imageBase64: string;
     prompt: string;
     model?: string;
+    maxTokens?: number;
   }): Promise<string> {
     const result = await this.postToBackend<BackendAIResponse>('/api/ai/analyze-image', {
       imageBase64,
       prompt,
       model,
+      maxTokens,
     });
 
     return this.extractContent(result);
   }
 
   async identifyPlant(imageBase64: string): Promise<string> {
-    const prompt = `You are a world-renowned botanist and plant taxonomist with 30+ years of experience in plant identification. Using advanced vision capabilities, analyze this plant image with extreme precision.
 
-Provide a comprehensive plant identification in valid JSON format with the following structure:
+    const prompt = `You are a world-renowned botanist and plant taxonomist with 30+ years of field research experience. Analyze the supplied plant photo and return a single JSON object that strictly matches this schema:
 
 {
-  "commonName": "Primary common name",
+  "plantName": "Primary common name",
   "scientificName": "Genus species",
-  "family": "Plant family name",
-  "confidence": 0.95,
-  "description": "Detailed botanical description including morphological characteristics, growth habits, size at maturity, and distinguishing features that confirm identification",
-  "careInstructions": "Comprehensive care guide including light, water, soil, temperature, humidity, fertilization, and seasonal care requirements",
-  "commonNames": ["Alternative common names"],
+  "confidence": 0.0,
+  "description": "Detailed botanical description highlighting diagnostic traits, growth habit, mature size, and distinguishing features.",
+  "careInstructions": "Comprehensive care guidance covering light, water, soil, temperature, humidity, fertilization, pruning, and repotting.",
+  "commonNames": ["Other widely used common names"],
+  "family": "Botanical family",
+  "isEdible": true,
+  "isToxic": false,
+  "lightRequirements": "Lighting requirement",
+  "waterRequirements": "Watering cadence or moisture preference",
+  "soilType": "Preferred soil composition",
+  "bloomTime": "Primary bloom period",
   "nativeRegion": "Geographic origin",
-  "lightRequirement": "Bright indirect light/Direct sunlight/Low light/Partial shade",
-  "wateringFrequency": "Daily/Every 2-3 days/Weekly/Bi-weekly/Monthly",
-  "soilType": "Well-draining/Moist/Wet/Sandy/Clay/Loamy/Rocky",
-  "toxicity": "Non-toxic/Mildly toxic/Toxic/Highly toxic",
-  "bloomingSeason": "Spring/Summer/Fall/Winter/Year-round/Rarely blooms",
-  "matureSize": "Height and spread at maturity",
-  "growthRate": "Slow/Moderate/Fast",
-  "hardiness": "USDA zones or temperature range"
+  "taxonomy": {
+    "kingdom": "Plantae",
+    "phylum": "Botanical division",
+    "class": "Botanical class",
+    "order": "Botanical order",
+    "family": "Botanical family",
+    "genus": "Genus",
+    "species": "Species epithet"
+  },
+  "morphology": {
+    "plantType": "Growth form (tree, shrub, herb, etc.)",
+    "height": "Typical mature height or range",
+    "leafShape": "Leaf shape",
+    "leafArrangement": "Leaf arrangement",
+    "flowerColor": ["Flower colors"],
+    "fruitType": "Fruit type",
+    "rootSystem": "Root system description"
+  },
+  "habitat": {
+    "climate": "Typical climate",
+    "soilPreference": "Soil preference",
+    "moistureRequirement": "Moisture requirement",
+    "temperatureRange": "Temperature range or USDA zone",
+    "hardiness": "Hardiness notes"
+  },
+  "distribution": {
+    "nativeRegions": ["Native regions or countries"],
+    "introducedRegions": ["Notable introduced regions"],
+    "altitudeRange": "Typical altitude range",
+    "commonHabitats": ["Habitats where it thrives"]
+  },
+  "uses": {
+    "medicinal": ["Medicinal uses"],
+    "culinary": ["Culinary uses"],
+    "ornamental": ["Ornamental uses"],
+    "industrial": ["Industrial uses"],
+    "ecological": ["Ecological roles"]
+  },
+  "conservationStatus": {
+    "status": "LC|NT|VU|EN|CR|EW|EX|DD|NE",
+    "statusDescription": "Explanation of the IUCN status",
+    "threats": ["Key threats"],
+    "protectionMeasures": ["Protection measures or guidance"]
+  },
+  "seasonality": {
+    "bloomingSeason": ["Bloom seasons"],
+    "fruitingSeason": ["Fruiting seasons"],
+    "bestPlantingTime": ["Best planting windows"],
+    "dormancyPeriod": "Dormancy notes"
+  },
+  "propagation": {
+    "methods": ["Propagation techniques"],
+    "difficulty": "Easy|Moderate|Difficult",
+    "timeToMaturity": "Time from propagation to maturity",
+    "specialRequirements": ["Notable propagation requirements"]
+  },
+  "companionPlants": ["Compatible companion plants"],
+  "pests": ["Common pests"],
+  "diseases": ["Common diseases"],
+  "culturalSignificance": "Relevant symbolism or cultural notes",
+  "interestingFacts": ["Compelling facts or trivia"]
 }
 
-Be extremely accurate and provide only valid JSON. If uncertain about identification, indicate lower confidence score.`;
+Guidelines:
+- Populate every field with the best verifiable information; prefer empty strings or arrays to placeholders such as "Unknown" or "N/A".
+- Express measurements with units (e.g., "60-90 cm tall") and offer ranges when helpful.
+- Only include botanically accurate details for the identified species.
+- If confidence is below 0.7, still provide the most likely identification and acknowledge uncertainty in the prose.
+- Respond with JSON only (no Markdown fences or commentary).`;
 
-    return this.analyzeImage({ imageBase64, prompt });
+    return this.analyzeImage({
+      imageBase64,
+      prompt,
+      model: GEMINI_MODELS.FLASH_IMAGE_PREVIEW,
+      maxTokens: 2800,
+    });
   }
 
   async analyzeHealth(imageBase64: string): Promise<string> {

@@ -31,6 +31,658 @@ const STORAGE_KEYS = {
   USER_PLANTS: 'user_plants',
 };
 
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const toNonEmptyString = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number') {
+    return value.toString();
+  }
+  return '';
+};
+
+const toStringArray = (value: unknown, fallback: string[] = []): string[] => {
+  if (Array.isArray(value)) {
+    const arr = value
+      .map(toNonEmptyString)
+      .filter(Boolean);
+    if (arr.length) {
+      return arr;
+    }
+    return [...fallback];
+  }
+
+  const str = toNonEmptyString(value);
+  if (str) {
+    const arr = str
+      .split(/[,;\n]/)
+      .map(part => part.trim())
+      .filter(Boolean);
+    if (arr.length) {
+      return arr;
+    }
+  }
+  return [...fallback];
+};
+
+const firstNonEmptyString = (candidates: unknown[], fallback: string): string => {
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      const joined = candidate
+        .map(toNonEmptyString)
+        .filter(Boolean)
+        .join(', ');
+      if (joined) {
+        return joined;
+      }
+    }
+    const str = toNonEmptyString(candidate);
+    if (str) {
+      return str;
+    }
+  }
+  return fallback;
+};
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+const parseConfidenceScore = (value: unknown, fallback: number): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const normalized = value > 1 ? value / 100 : value;
+    return clamp(normalized, 0, 1);
+  }
+
+  const str = toNonEmptyString(value).replace('%', '');
+  if (str) {
+    const parsed = Number.parseFloat(str);
+    if (Number.isFinite(parsed)) {
+      const normalized = parsed > 1 ? parsed / 100 : parsed;
+      return clamp(normalized, 0, 1);
+    }
+  }
+
+  return clamp(fallback, 0, 1);
+};
+
+const interpretToxicity = (value: unknown, fallback: boolean): boolean => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const text = toNonEmptyString(value).toLowerCase();
+  if (!text) {
+    return fallback;
+  }
+  if (/(non[-\s]?toxic|pet[-\s]?safe|safe for pets|non toxic|not toxic)/.test(text)) {
+    return false;
+  }
+  if (/(toxic|poison|irritant|harmful)/.test(text)) {
+    return true;
+  }
+  return fallback;
+};
+
+const interpretEdibility = (value: unknown, fallback: boolean): boolean => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const text = toNonEmptyString(value).toLowerCase();
+  if (!text) {
+    return fallback;
+  }
+  if (/(not edible|non[-\s]?edible|toxic|poison|unsafe)/.test(text)) {
+    return false;
+  }
+  if (/(edible|consumable|culinary|safe to eat)/.test(text)) {
+    return true;
+  }
+  return fallback;
+};
+
+const interpretPropagationDifficulty = (
+  value: unknown,
+  fallback: 'Easy' | 'Moderate' | 'Difficult',
+): 'Easy' | 'Moderate' | 'Difficult' => {
+  const text = toNonEmptyString(value).toLowerCase();
+  if (!text) {
+    return fallback;
+  }
+  if (/(easy|simple|straightforward|low)/.test(text)) {
+    return 'Easy';
+  }
+  if (/(difficult|hard|challenging|advanced)/.test(text)) {
+    return 'Difficult';
+  }
+  return 'Moderate';
+};
+
+const buildCareInstructionsFromObject = (
+  value?: Record<string, unknown>,
+): string => {
+  if (!value) {
+    return '';
+  }
+  const segments: string[] = [];
+  const pairs: Array<[string, string]> = [
+    ['light', 'Light'],
+    ['sunlight', 'Sunlight'],
+    ['exposure', 'Exposure'],
+    ['water', 'Water'],
+    ['watering', 'Watering'],
+    ['soil', 'Soil'],
+    ['temperature', 'Temperature'],
+    ['humidity', 'Humidity'],
+    ['fertilizer', 'Fertilizer'],
+    ['feeding', 'Feeding'],
+    ['pruning', 'Pruning'],
+  ];
+  for (const [key, label] of pairs) {
+    const str = toNonEmptyString(value[key]);
+    if (str) {
+      segments.push(`${label}: ${str}`);
+    }
+  }
+  return segments.join('. ');
+};
+
+type PlantDetails = Omit<PlantIdentification, 'id' | 'timestamp' | 'imageUri'>;
+
+const createDefaultPlantDetails = (): PlantDetails => ({
+  plantName: 'Unknown Plant',
+  scientificName: 'Species unknown',
+  confidence: 0.5,
+  description: 'Unable to identify this plant with confidence. Please try a clearer image.',
+  careInstructions: 'General plant care: provide adequate light, water when soil is dry, and ensure good drainage.',
+  commonNames: ['Unknown'],
+  family: 'Unknown',
+  isEdible: false,
+  isToxic: false,
+  lightRequirements: 'Medium',
+  waterRequirements: 'Medium',
+  soilType: 'Well-draining',
+  bloomTime: 'Unknown',
+  nativeRegion: 'Unknown',
+  taxonomy: {
+    kingdom: 'Plantae',
+    phylum: 'Unknown',
+    class: 'Unknown',
+    order: 'Unknown',
+    family: 'Unknown',
+    genus: 'Unknown',
+    species: 'Unknown',
+  },
+  morphology: {
+    plantType: 'Unknown',
+    height: 'Unknown',
+    leafShape: 'Unknown',
+    leafArrangement: 'Unknown',
+    flowerColor: [],
+    fruitType: 'Unknown',
+    rootSystem: 'Unknown',
+  },
+  habitat: {
+    climate: 'Unknown',
+    soilPreference: 'Unknown',
+    moistureRequirement: 'Unknown',
+    temperatureRange: 'Unknown',
+    hardiness: 'Unknown',
+  },
+  distribution: {
+    nativeRegions: [],
+    introducedRegions: [],
+    altitudeRange: 'Unknown',
+    commonHabitats: [],
+  },
+  uses: {
+    medicinal: [],
+    culinary: [],
+    ornamental: [],
+    industrial: [],
+    ecological: [],
+  },
+  conservationStatus: {
+    status: 'DD',
+    statusDescription: 'Data Deficient',
+    threats: [],
+    protectionMeasures: [],
+  },
+  seasonality: {
+    bloomingSeason: [],
+    fruitingSeason: [],
+    bestPlantingTime: [],
+    dormancyPeriod: 'Unknown',
+  },
+  propagation: {
+    methods: [],
+    difficulty: 'Moderate',
+    timeToMaturity: 'Unknown',
+    specialRequirements: [],
+  },
+  companionPlants: [],
+  pests: [],
+  diseases: [],
+  culturalSignificance: '',
+  interestingFacts: [],
+});
+
+const normalizePlantIdentification = (raw: unknown): PlantDetails => {
+  const defaults = createDefaultPlantDetails();
+  const normalized = createDefaultPlantDetails();
+  const source = isRecord(raw) ? raw : {};
+
+  const care =
+    (isRecord(source['careDetails']) && (source['careDetails'] as Record<string, unknown>)) ||
+    (isRecord(source['careInfo']) && (source['careInfo'] as Record<string, unknown>)) ||
+    (isRecord(source['care']) && (source['care'] as Record<string, unknown>));
+
+  const taxonomy =
+    (isRecord(source['taxonomy']) && (source['taxonomy'] as Record<string, unknown>)) ||
+    (isRecord(source['scientificClassification']) && (source['scientificClassification'] as Record<string, unknown>)) ||
+    (isRecord(source['classification']) && (source['classification'] as Record<string, unknown>));
+
+  const morphology =
+    (isRecord(source['morphology']) && (source['morphology'] as Record<string, unknown>)) ||
+    (isRecord(source['physicalCharacteristics']) && (source['physicalCharacteristics'] as Record<string, unknown>)) ||
+    (isRecord(source['characteristics']) && (source['characteristics'] as Record<string, unknown>));
+
+  const habitat =
+    (isRecord(source['habitat']) && (source['habitat'] as Record<string, unknown>)) ||
+    (isRecord(source['growingConditions']) && (source['growingConditions'] as Record<string, unknown>)) ||
+    (isRecord(source['environment']) && (source['environment'] as Record<string, unknown>));
+
+  const distribution =
+    (isRecord(source['distribution']) && (source['distribution'] as Record<string, unknown>)) ||
+    (isRecord(source['range']) && (source['range'] as Record<string, unknown>)) ||
+    (isRecord(source['geography']) && (source['geography'] as Record<string, unknown>));
+
+  const uses =
+    (isRecord(source['uses']) && (source['uses'] as Record<string, unknown>)) ||
+    (isRecord(source['applications']) && (source['applications'] as Record<string, unknown>));
+
+  const conservation =
+    (isRecord(source['conservationStatus']) && (source['conservationStatus'] as Record<string, unknown>)) ||
+    (isRecord(source['conservation']) && (source['conservation'] as Record<string, unknown>));
+
+  const seasonality =
+    (isRecord(source['seasonality']) && (source['seasonality'] as Record<string, unknown>)) ||
+    (isRecord(source['seasonalInformation']) && (source['seasonalInformation'] as Record<string, unknown>));
+
+  const propagation =
+    (isRecord(source['propagation']) && (source['propagation'] as Record<string, unknown>)) ||
+    (isRecord(source['propagationInfo']) && (source['propagationInfo'] as Record<string, unknown>));
+
+  normalized.plantName = firstNonEmptyString(
+    [
+      source['plantName'],
+      source['commonName'],
+      source['primaryCommonName'],
+      Array.isArray(source['commonNames']) ? (source['commonNames'] as unknown[])[0] : undefined,
+    ],
+    defaults.plantName,
+  );
+
+  normalized.commonNames = toStringArray(
+    source['commonNames'] ?? source['synonyms'] ?? source['aliases'] ?? source['commonName'],
+    defaults.commonNames,
+  );
+
+  normalized.scientificName = firstNonEmptyString(
+    [source['scientificName'], source['botanicalName'], source['binomialName']],
+    defaults.scientificName,
+  );
+
+  normalized.confidence = parseConfidenceScore(
+    source['confidence'] ?? source['confidenceScore'] ?? source['matchScore'] ?? source['matchPercentage'],
+    defaults.confidence,
+  );
+
+  normalized.description = firstNonEmptyString(
+    [source['description'], source['summary'], source['overview'], source['botanicalDescription']],
+    defaults.description,
+  );
+
+  const careFromObject = buildCareInstructionsFromObject(care);
+  normalized.careInstructions =
+    firstNonEmptyString(
+      [source['careInstructions'], source['careGuide'], source['careSummary'], source['careNotes']],
+      '',
+    ) || careFromObject || defaults.careInstructions;
+
+  normalized.family = firstNonEmptyString(
+    [
+      source['family'],
+      taxonomy?.['family'],
+      taxonomy?.['familyName'],
+    ],
+    defaults.family,
+  );
+
+  normalized.isEdible = interpretEdibility(
+    source['isEdible'] ?? source['edibility'] ?? source['edible'],
+    defaults.isEdible,
+  );
+  normalized.isToxic = interpretToxicity(
+    source['isToxic'] ?? source['toxicity'] ?? source['toxicToPets'] ?? source['toxicityLevel'],
+    defaults.isToxic,
+  );
+
+  normalized.lightRequirements = firstNonEmptyString(
+    [
+      source['lightRequirements'],
+      source['lightRequirement'],
+      source['light'],
+      care?.['light'],
+      care?.['sunlight'],
+    ],
+    defaults.lightRequirements,
+  );
+
+  normalized.waterRequirements = firstNonEmptyString(
+    [
+      source['waterRequirements'],
+      source['wateringFrequency'],
+      source['water'],
+      care?.['water'],
+      care?.['watering'],
+    ],
+    defaults.waterRequirements,
+  );
+
+  normalized.soilType = firstNonEmptyString(
+    [
+      source['soilType'],
+      source['soil'],
+      care?.['soil'],
+      habitat?.['soilType'],
+      habitat?.['soilPreference'],
+    ],
+    defaults.soilType,
+  );
+
+  const bloomingSeasonArray = toStringArray(
+    seasonality?.['bloomingSeason'] ??
+      seasonality?.['bloomSeasons'] ??
+      seasonality?.['floweringSeason'] ??
+      source['bloomingSeason'],
+    defaults.seasonality.bloomingSeason,
+  );
+
+  normalized.bloomTime = firstNonEmptyString(
+    [source['bloomTime'], bloomingSeasonArray.join(', ')],
+    defaults.bloomTime,
+  );
+
+  const bestPlantingArray = toStringArray(
+    seasonality?.['bestPlantingTime'] ??
+      seasonality?.['plantingSeason'] ??
+      seasonality?.['plantingSeasons'],
+    defaults.seasonality.bestPlantingTime,
+  );
+
+  const fruitingSeasonArray = toStringArray(
+    seasonality?.['fruitingSeason'] ??
+      seasonality?.['fruitingSeasons'] ??
+      source['fruitingSeason'],
+    defaults.seasonality.fruitingSeason,
+  );
+
+  normalized.seasonality = {
+    bloomingSeason: bloomingSeasonArray,
+    fruitingSeason: fruitingSeasonArray,
+    bestPlantingTime: bestPlantingArray,
+    dormancyPeriod: firstNonEmptyString(
+      [seasonality?.['dormancyPeriod'], seasonality?.['dormancy'], source['dormancyPeriod']],
+      defaults.seasonality.dormancyPeriod,
+    ),
+  };
+
+  normalized.nativeRegion = firstNonEmptyString(
+    [source['nativeRegion'], source['origin'], distribution?.['nativeRegion']],
+    defaults.nativeRegion,
+  );
+
+  normalized.taxonomy = {
+    ...defaults.taxonomy,
+    kingdom: firstNonEmptyString(
+      [taxonomy?.['kingdom'], source['kingdom']],
+      defaults.taxonomy.kingdom,
+    ),
+    phylum: firstNonEmptyString(
+      [taxonomy?.['phylum'], taxonomy?.['division'], source['phylum']],
+      defaults.taxonomy.phylum,
+    ),
+    class: firstNonEmptyString(
+      [taxonomy?.['class'], taxonomy?.['className'], source['class']],
+      defaults.taxonomy.class,
+    ),
+    order: firstNonEmptyString(
+      [taxonomy?.['order'], taxonomy?.['orderName'], source['order']],
+      defaults.taxonomy.order,
+    ),
+    family: firstNonEmptyString(
+      [taxonomy?.['family'], taxonomy?.['familyName'], source['family']],
+      defaults.taxonomy.family,
+    ),
+    genus: firstNonEmptyString(
+      [taxonomy?.['genus'], taxonomy?.['genusName'], source['genus']],
+      defaults.taxonomy.genus,
+    ),
+    species: firstNonEmptyString(
+      [taxonomy?.['species'], taxonomy?.['speciesName'], source['species']],
+      defaults.taxonomy.species,
+    ),
+  };
+
+  const scientificParts = normalized.scientificName.split(' ').filter(Boolean);
+  if ((!normalized.taxonomy.genus || normalized.taxonomy.genus === defaults.taxonomy.genus) && scientificParts.length) {
+    normalized.taxonomy.genus = scientificParts[0];
+  }
+  if ((!normalized.taxonomy.species || normalized.taxonomy.species === defaults.taxonomy.species) && scientificParts.length >= 2) {
+    normalized.taxonomy.species = scientificParts.slice(1).join(' ');
+  }
+  if (!normalized.family || normalized.family === defaults.family) {
+    normalized.family = normalized.taxonomy.family || defaults.family;
+  }
+
+  normalized.morphology = {
+    plantType: firstNonEmptyString(
+      [
+        morphology?.['plantType'],
+        morphology?.['growthForm'],
+        source['plantType'],
+        source['growthHabit'],
+      ],
+      defaults.morphology.plantType,
+    ),
+    height: firstNonEmptyString(
+      [
+        morphology?.['height'],
+        morphology?.['size'],
+        source['matureSize'],
+        source['height'],
+      ],
+      defaults.morphology.height,
+    ),
+    leafShape: firstNonEmptyString(
+      [morphology?.['leafShape'], source['leafShape'], morphology?.['leafShapes']],
+      defaults.morphology.leafShape,
+    ),
+    leafArrangement: firstNonEmptyString(
+      [morphology?.['leafArrangement'], source['leafArrangement']],
+      defaults.morphology.leafArrangement,
+    ),
+    flowerColor: toStringArray(
+      morphology?.['flowerColor'] ??
+        morphology?.['flowerColors'] ??
+        source['flowerColor'] ??
+        source['flowerColors'],
+      defaults.morphology.flowerColor,
+    ),
+    fruitType: firstNonEmptyString(
+      [morphology?.['fruitType'], source['fruitType'], morphology?.['fruitTypes']],
+      defaults.morphology.fruitType,
+    ),
+    rootSystem: firstNonEmptyString(
+      [morphology?.['rootSystem'], source['rootSystem'], source['rootType']],
+      defaults.morphology.rootSystem,
+    ),
+  };
+
+  normalized.habitat = {
+    climate: firstNonEmptyString(
+      [habitat?.['climate'], source['climate']],
+      defaults.habitat.climate,
+    ),
+    soilPreference: firstNonEmptyString(
+      [
+        habitat?.['soilPreference'],
+        habitat?.['soilType'],
+        source['soilPreference'],
+        source['preferredSoil'],
+      ],
+      defaults.habitat.soilPreference,
+    ),
+    moistureRequirement: firstNonEmptyString(
+      [
+        habitat?.['moistureRequirement'],
+        habitat?.['moisture'],
+        source['moistureRequirement'],
+        source['moistureNeeds'],
+      ],
+      defaults.habitat.moistureRequirement,
+    ),
+    temperatureRange: firstNonEmptyString(
+      [
+        habitat?.['temperatureRange'],
+        habitat?.['temperature'],
+        source['temperatureRange'],
+        source['temperature'],
+        care?.['temperature'],
+      ],
+      defaults.habitat.temperatureRange,
+    ),
+    hardiness: firstNonEmptyString(
+      [
+        habitat?.['hardiness'],
+        source['hardiness'],
+        source['hardinessZone'],
+        source['hardinessZones'],
+      ],
+      defaults.habitat.hardiness,
+    ),
+  };
+
+  normalized.distribution = {
+    nativeRegions: toStringArray(
+      distribution?.['nativeRegions'] ??
+        distribution?.['nativeRegion'] ??
+        source['nativeRegions'] ??
+        source['nativeRegion'],
+      defaults.distribution.nativeRegions,
+    ),
+    introducedRegions: toStringArray(
+      distribution?.['introducedRegions'] ??
+        distribution?.['introducedRegion'] ??
+        source['introducedRegions'],
+      defaults.distribution.introducedRegions,
+    ),
+    altitudeRange: firstNonEmptyString(
+      [distribution?.['altitudeRange'], source['altitudeRange']],
+      defaults.distribution.altitudeRange,
+    ),
+    commonHabitats: toStringArray(
+      distribution?.['commonHabitats'] ??
+        habitat?.['commonHabitats'] ??
+        source['commonHabitats'],
+      defaults.distribution.commonHabitats,
+    ),
+  };
+
+  if ((!normalized.nativeRegion || normalized.nativeRegion === defaults.nativeRegion) && normalized.distribution.nativeRegions.length) {
+    normalized.nativeRegion = normalized.distribution.nativeRegions.join(', ');
+  }
+
+  normalized.uses = {
+    medicinal: toStringArray(uses?.['medicinal'] ?? source['medicinalUses'], defaults.uses.medicinal),
+    culinary: toStringArray(uses?.['culinary'] ?? source['culinaryUses'], defaults.uses.culinary),
+    ornamental: toStringArray(uses?.['ornamental'] ?? source['ornamentalUses'] ?? source['uses'], defaults.uses.ornamental),
+    industrial: toStringArray(uses?.['industrial'] ?? source['industrialUses'], defaults.uses.industrial),
+    ecological: toStringArray(uses?.['ecological'] ?? source['ecologicalUses'], defaults.uses.ecological),
+  };
+
+  const statusCode = firstNonEmptyString(
+    [conservation?.['status'], conservation?.['code'], source['iucnStatus']],
+    defaults.conservationStatus.status,
+  )
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '') as PlantIdentification['conservationStatus']['status'];
+
+  const allowedStatuses: PlantIdentification['conservationStatus']['status'][] = ['LC', 'NT', 'VU', 'EN', 'CR', 'EW', 'EX', 'DD', 'NE'];
+
+  normalized.conservationStatus = {
+    status: allowedStatuses.includes(statusCode) ? statusCode : defaults.conservationStatus.status,
+    statusDescription: firstNonEmptyString(
+      [conservation?.['statusDescription'], conservation?.['description'], conservation?.['summary']],
+      defaults.conservationStatus.statusDescription,
+    ),
+    threats: toStringArray(conservation?.['threats'] ?? source['threats'], defaults.conservationStatus.threats),
+    protectionMeasures: toStringArray(
+      conservation?.['protectionMeasures'] ?? conservation?.['protections'] ?? source['protectionMeasures'],
+      defaults.conservationStatus.protectionMeasures,
+    ),
+  };
+
+  normalized.propagation = {
+    methods: toStringArray(
+      propagation?.['methods'] ?? propagation?.['techniques'] ?? source['propagationMethods'],
+      defaults.propagation.methods,
+    ),
+    difficulty: interpretPropagationDifficulty(
+      propagation?.['difficulty'] ?? source['propagationDifficulty'],
+      defaults.propagation.difficulty,
+    ),
+    timeToMaturity: firstNonEmptyString(
+      [propagation?.['timeToMaturity'], propagation?.['timeframe'], source['timeToMaturity']],
+      defaults.propagation.timeToMaturity,
+    ),
+    specialRequirements: toStringArray(
+      propagation?.['specialRequirements'] ?? propagation?.['requirements'] ?? source['propagationRequirements'],
+      defaults.propagation.specialRequirements,
+    ),
+  };
+
+  normalized.companionPlants = toStringArray(
+    source['companionPlants'] ?? propagation?.['companionPlants'],
+    defaults.companionPlants,
+  );
+
+  normalized.pests = toStringArray(
+    source['pests'] ?? source['commonPests'] ?? uses?.['pests'],
+    defaults.pests,
+  );
+
+  normalized.diseases = toStringArray(
+    source['diseases'] ?? source['commonDiseases'] ?? uses?.['diseases'],
+    defaults.diseases,
+  );
+
+  normalized.culturalSignificance = firstNonEmptyString(
+    [source['culturalSignificance'], source['symbolism'], source['culturalNotes']],
+    defaults.culturalSignificance,
+  );
+
+  normalized.interestingFacts = toStringArray(
+    source['interestingFacts'] ?? source['facts'] ?? source['notableFeatures'],
+    defaults.interestingFacts,
+  );
+
+  return normalized;
+};
+
 export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [isIdentifying, setIsIdentifying] = useState(false);
@@ -168,223 +820,51 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
       const aiResponseText = await openRouterService.identifyPlant(base64);
 
       // Parse the AI response to extract JSON
-      let plantData;
+      let plantDetails: PlantDetails;
       try {
         console.log('Raw OpenRouter response:', aiResponseText);
-        
-        // Clean the response text and try to find JSON
+
         const cleanedText = aiResponseText.trim();
-        
-        // Multiple strategies to extract JSON
         let jsonText = '';
-        
-        // Strategy 1: Look for JSON code blocks
+
         const jsonBlockMatch = cleanedText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/i);
         if (jsonBlockMatch) {
           jsonText = jsonBlockMatch[1];
         } else {
-          // Strategy 2: Look for the first { and last }
           const firstBrace = cleanedText.indexOf('{');
           const lastBrace = cleanedText.lastIndexOf('}');
-          
+
           if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
             jsonText = cleanedText.substring(firstBrace, lastBrace + 1);
           } else {
             throw new Error('No valid JSON structure found in response');
           }
         }
-        
+
         console.log('Extracted JSON text:', jsonText);
-        
-        // Clean up common JSON formatting issues
+
         jsonText = jsonText
-          .replace(/\n/g, ' ')  // Replace newlines with spaces
-          .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
-          .replace(/,\s*}/g, '}')  // Remove trailing commas
-          .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+          .replace(/\u0000/g, '')
+          .replace(/\r?\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
           .trim();
-        
-        // Parse the JSON
-        plantData = JSON.parse(jsonText);
-        
-        // Validate and set defaults for required fields
-        plantData.plantName = plantData.plantName || 'Unknown Plant';
-        plantData.scientificName = plantData.scientificName || 'Species unknown';
-        plantData.confidence = typeof plantData.confidence === 'number' ? plantData.confidence : 0.5;
-        plantData.description = plantData.description || 'Unable to identify this plant with confidence.';
-        plantData.careInstructions = plantData.careInstructions || 'General plant care: provide adequate light, water when soil is dry.';
-        plantData.commonNames = Array.isArray(plantData.commonNames) ? plantData.commonNames : ['Unknown'];
-        plantData.family = plantData.family || 'Unknown';
-        plantData.isEdible = typeof plantData.isEdible === 'boolean' ? plantData.isEdible : false;
-        plantData.isToxic = typeof plantData.isToxic === 'boolean' ? plantData.isToxic : false;
-        plantData.lightRequirements = plantData.lightRequirements || 'Medium';
-        plantData.waterRequirements = plantData.waterRequirements || 'Medium';
-        plantData.soilType = plantData.soilType || 'Well-draining';
-        plantData.bloomTime = plantData.bloomTime || 'Unknown';
-        plantData.nativeRegion = plantData.nativeRegion || 'Unknown';
-        
-        // Set defaults for enhanced fields
-        plantData.taxonomy = plantData.taxonomy || {
-          kingdom: 'Plantae',
-          phylum: 'Unknown',
-          class: 'Unknown',
-          order: 'Unknown',
-          family: plantData.family || 'Unknown',
-          genus: 'Unknown',
-          species: 'Unknown'
-        };
-        
-        plantData.morphology = plantData.morphology || {
-          plantType: 'Unknown',
-          height: 'Unknown',
-          leafShape: 'Unknown',
-          leafArrangement: 'Unknown',
-          flowerColor: [],
-          fruitType: 'Unknown',
-          rootSystem: 'Unknown'
-        };
-        
-        plantData.habitat = plantData.habitat || {
-          climate: 'Unknown',
-          soilPreference: 'Unknown',
-          moistureRequirement: 'Unknown',
-          temperatureRange: 'Unknown',
-          hardiness: 'Unknown'
-        };
-        
-        plantData.distribution = plantData.distribution || {
-          nativeRegions: [],
-          introducedRegions: [],
-          altitudeRange: 'Unknown',
-          commonHabitats: []
-        };
-        
-        plantData.uses = plantData.uses || {
-          medicinal: [],
-          culinary: [],
-          ornamental: [],
-          industrial: [],
-          ecological: []
-        };
-        
-        plantData.conservationStatus = plantData.conservationStatus || {
-          status: 'DD',
-          statusDescription: 'Data Deficient',
-          threats: [],
-          protectionMeasures: []
-        };
-        
-        plantData.seasonality = plantData.seasonality || {
-          bloomingSeason: [],
-          fruitingSeason: [],
-          bestPlantingTime: [],
-          dormancyPeriod: 'Unknown'
-        };
-        
-        plantData.propagation = plantData.propagation || {
-          methods: [],
-          difficulty: 'Moderate',
-          timeToMaturity: 'Unknown',
-          specialRequirements: []
-        };
-        
-        plantData.companionPlants = plantData.companionPlants || [];
-        plantData.pests = plantData.pests || [];
-        plantData.diseases = plantData.diseases || [];
-        plantData.culturalSignificance = plantData.culturalSignificance || '';
-        plantData.interestingFacts = plantData.interestingFacts || [];
-        
-        console.log('Successfully parsed and validated plant data:', plantData);
-        
+
+        const parsed = JSON.parse(jsonText);
+        plantDetails = normalizePlantIdentification(parsed);
+        console.log('Successfully parsed and normalized plant data:', plantDetails);
       } catch (parseError) {
         console.error('Failed to parse OpenRouter response:', parseError);
         console.error('Response that failed to parse:', aiResponseText);
-        
-        // Fallback if JSON parsing fails - complete structure
-        plantData = {
-          plantName: "Unknown Plant",
-          scientificName: "Species unknown",
-          confidence: 0.5,
-          description: "Unable to identify this plant with confidence. Please try a clearer image.",
-          careInstructions: "General plant care: provide adequate light, water when soil is dry, and ensure good drainage.",
-          commonNames: ["Unknown"],
-          family: "Unknown",
-          isEdible: false,
-          isToxic: false,
-          lightRequirements: "Medium",
-          waterRequirements: "Medium",
-          soilType: "Well-draining",
-          bloomTime: "Unknown",
-          nativeRegion: "Unknown",
-          taxonomy: {
-            kingdom: 'Plantae',
-            phylum: 'Unknown',
-            class: 'Unknown',
-            order: 'Unknown',
-            family: 'Unknown',
-            genus: 'Unknown',
-            species: 'Unknown'
-          },
-          morphology: {
-            plantType: 'Unknown',
-            height: 'Unknown',
-            leafShape: 'Unknown',
-            leafArrangement: 'Unknown',
-            flowerColor: [],
-            fruitType: 'Unknown',
-            rootSystem: 'Unknown'
-          },
-          habitat: {
-            climate: 'Unknown',
-            soilPreference: 'Unknown',
-            moistureRequirement: 'Unknown',
-            temperatureRange: 'Unknown',
-            hardiness: 'Unknown'
-          },
-          distribution: {
-            nativeRegions: [],
-            introducedRegions: [],
-            altitudeRange: 'Unknown',
-            commonHabitats: []
-          },
-          uses: {
-            medicinal: [],
-            culinary: [],
-            ornamental: [],
-            industrial: [],
-            ecological: []
-          },
-          conservationStatus: {
-            status: 'DD' as const,
-            statusDescription: 'Data Deficient',
-            threats: [],
-            protectionMeasures: []
-          },
-          seasonality: {
-            bloomingSeason: [],
-            fruitingSeason: [],
-            bestPlantingTime: [],
-            dormancyPeriod: 'Unknown'
-          },
-          propagation: {
-            methods: [],
-            difficulty: 'Moderate' as const,
-            timeToMaturity: 'Unknown',
-            specialRequirements: []
-          },
-          companionPlants: [],
-          pests: [],
-          diseases: [],
-          culturalSignificance: '',
-          interestingFacts: []
-        };
+        plantDetails = createDefaultPlantDetails();
       }
 
       const identification: PlantIdentification = {
         id: Date.now().toString(),
         timestamp: Date.now(),
         imageUri,
-        ...plantData,
+        ...plantDetails,
       };
 
       await saveIdentificationMutation.mutateAsync(identification);

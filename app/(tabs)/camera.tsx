@@ -29,9 +29,9 @@ export default function CameraScreen() {
   }, [isIdentifying, isAnalyzingHealth, isHealthMode]);
   const insets = useSafeAreaInsets();
   const mountedRef = useRef<boolean>(true);
-  const cleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cleanupTimeoutRef = useRef<number | null>(null);
+  const activationTimeoutRef = useRef<number | null>(null);
+  const initTimeoutRef = useRef<number | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   const cleanupCamera = useCallback(() => {
@@ -180,7 +180,7 @@ export default function CameraScreen() {
           // Navigate after cleanup
           cleanupTimeoutRef.current = setTimeout(() => {
             if (mountedRef.current) {
-              router.replace(`/plant-details?id=${identification.id}`);
+              router.push(`/plant-details?id=${identification.id}`);
             }
           }, 150);
         }
