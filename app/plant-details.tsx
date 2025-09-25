@@ -32,7 +32,7 @@ import HealthCheckModal from '@/components/HealthCheckModal';
 import { Colors, getConfidenceColor } from '@/constants/colors';
 
 export default function PlantDetailsScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, source } = useLocalSearchParams();
   const { identifications, addToGarden, userPlants, isAnalyzingHealth, analyzeHealth } = usePlantStore();
   const [isAddingToGarden, setIsAddingToGarden] = useState(false);
   const [showHealthModal, setShowHealthModal] = useState(false);
@@ -40,6 +40,17 @@ export default function PlantDetailsScreen() {
 
   const identification = identifications.find(p => p.id === id);
   const isInGarden = userPlants.some(p => p.identificationId === id);
+
+  const handleBackPress = () => {
+    if (source === 'camera') {
+      router.push('/(tabs)/');
+    } else if (source === 'garden') {
+      router.push('/(tabs)/garden');
+    } else {
+      // Default to home for 'home' source or any other case
+      router.push('/(tabs)/');
+    }
+  };
 
   const showAlert = (title: string, message: string) => {
     if (!title?.trim() || !message?.trim()) return;
@@ -116,7 +127,7 @@ export default function PlantDetailsScreen() {
             <Image source={{ uri: identification.imageUri }} style={styles.heroImage} />
             <TouchableOpacity 
               style={[styles.backButton, { top: insets.top + 16 }]} 
-              onPress={() => router.back()}
+              onPress={handleBackPress}
             >
               <ArrowLeft size={24} color="#FFFFFF" />
             </TouchableOpacity>

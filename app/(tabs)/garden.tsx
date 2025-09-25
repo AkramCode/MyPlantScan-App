@@ -124,7 +124,7 @@ export default function GardenScreen() {
                 <View key={plant.id} style={styles.plantCard}>
                   <TouchableOpacity 
                     style={styles.plantCardContent}
-                    onPress={() => router.push(`/plant-details?id=${plant.identificationId}`)}
+                    onPress={() => router.push(`/plant-details?id=${plant.identificationId}&source=garden`)}
                   >
                     <Image source={{ uri: plant.imageUri }} style={styles.plantImage} />
                     <View style={styles.plantInfo}>
@@ -203,7 +203,7 @@ export default function GardenScreen() {
                   <TouchableOpacity 
                     key={identification.id} 
                     style={styles.plantCard}
-                    onPress={() => router.push(`/plant-details?id=${identification.id}`)}
+                    onPress={() => router.push(`/plant-details?id=${identification.id}&source=garden`)}
                   >
                     <Image source={{ uri: identification.imageUri }} style={styles.plantImage} />
                     <View style={styles.plantInfo}>

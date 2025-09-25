@@ -10,7 +10,7 @@ export default function HomeScreen() {
   const { identifications, userPlants, isLoading } = usePlantStore();
   const insets = useSafeAreaInsets();
 
-  const recentIdentifications = identifications.slice(0, 3);
+  const recentIdentifications = identifications.slice(0, 10);
   const stats = {
     totalIdentifications: identifications.length,
     plantsInGarden: userPlants.length,
@@ -20,7 +20,7 @@ export default function HomeScreen() {
   };
 
   const handlePlantPress = (identification: any) => {
-    router.push(`/plant-details?id=${identification.id}`);
+    router.push(`/plant-details?id=${identification.id}&source=home`);
   };
 
   return (
@@ -84,6 +84,9 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Identifications</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/garden')}>
+                <Text style={styles.seeAll}>More</Text>
+              </TouchableOpacity>
             </View>
             
             <View style={styles.cardsGrid}>

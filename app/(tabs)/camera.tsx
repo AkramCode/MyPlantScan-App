@@ -180,7 +180,7 @@ export default function CameraScreen() {
           // Navigate after cleanup
           cleanupTimeoutRef.current = setTimeout(() => {
             if (mountedRef.current) {
-              router.push(`/plant-details?id=${identification.id}`);
+              router.push(`/plant-details?id=${identification.id}&source=camera`);
             }
           }, 150);
         }
