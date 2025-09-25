@@ -102,7 +102,7 @@ export default function ProfileModal({ visible, onClose }: ProfileModalProps) {
             </View>
             <Text style={styles.email}>{user?.email}</Text>
             <Text style={styles.memberSince}>
-              Member since {new Date(user?.created_at || '').toLocaleDateString()}
+              Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}
             </Text>
           </View>
 

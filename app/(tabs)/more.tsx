@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MoreScreen() {
   const { identifications, userPlants, healthRecords } = usePlantStore();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAuthScreen, setShowAuthScreen] = useState(false);
@@ -368,7 +368,7 @@ export default function MoreScreen() {
                 </View>
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>
-                    {user.user_metadata?.full_name || 'User'}
+                    {profile?.full_name || 'User'}
                   </Text>
                   <Text style={styles.userEmail}>{user.email}</Text>
                 </View>

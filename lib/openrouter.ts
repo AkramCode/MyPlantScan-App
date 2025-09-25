@@ -2,13 +2,13 @@ import 'react-native-url-polyfill/auto';
 
 interface OpenRouterMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string | Array<{
+  content: string | {
     type: 'text' | 'image_url';
     text?: string;
     image_url?: {
       url: string;
     };
-  }>;
+  }[];
 }
 
 interface OpenRouterRequest {
@@ -17,14 +17,15 @@ interface OpenRouterRequest {
   max_tokens?: number;
   temperature?: number;
   top_p?: number;
+  [key: string]: unknown;
 }
 
 interface BackendAIResponse {
-  choices?: Array<{
+  choices?: {
     message?: {
       content?: string;
     };
-  }>;
+  }[];
 }
 
 const DEFAULT_BACKEND_URL = 'https://myplantscan-backend.vercel.app';
@@ -265,8 +266,7 @@ Guidelines:
     const contextBlock =
       contextLines.length > 0
         ? `Known context:
-${contextLines.map(line => '- ' + line).join('
-')}
+${contextLines.map(line => '- ' + line).join('\n')}
 
 `
         : '';
@@ -327,6 +327,7 @@ Guidelines:
 
     return this.extractContent(result);
   }
+}
 
 export const openRouterService = new OpenRouterService();
 export default openRouterService;

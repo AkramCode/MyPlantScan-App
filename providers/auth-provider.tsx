@@ -14,7 +14,6 @@ import {
   type AuthUser,
   type Profile,
   type ProfileUpdate,
-  type BackendError,
 } from '@/lib/supabase';
 
 const clearStorageData = async () => {
@@ -25,8 +24,8 @@ const clearStorageData = async () => {
       localStorage.removeItem('user_plants');
       localStorage.removeItem(SESSION_STORAGE_KEY);
     } else {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      await AsyncStorage.multiRemove([
+      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      await AsyncStorage.default.multiRemove([
         'plant_identifications',
         'plant_health_records',
         'user_plants',
@@ -50,8 +49,8 @@ const getStorageItem = async (key: string): Promise<string | null> => {
   if (Platform.OS === 'web') {
     return localStorage.getItem(key);
   }
-  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  return await AsyncStorage.getItem(key);
+  const AsyncStorage = await import('@react-native-async-storage/async-storage');
+  return await AsyncStorage.default.getItem(key);
 };
 
 const setStorageItem = async (key: string, value: string) => {
@@ -59,8 +58,8 @@ const setStorageItem = async (key: string, value: string) => {
     localStorage.setItem(key, value);
     return;
   }
-  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  await AsyncStorage.setItem(key, value);
+  const AsyncStorage = await import('@react-native-async-storage/async-storage');
+  await AsyncStorage.default.setItem(key, value);
 };
 
 const removeStorageItem = async (key: string) => {
@@ -68,8 +67,8 @@ const removeStorageItem = async (key: string) => {
     localStorage.removeItem(key);
     return;
   }
-  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  await AsyncStorage.removeItem(key);
+  const AsyncStorage = await import('@react-native-async-storage/async-storage');
+  await AsyncStorage.default.removeItem(key);
 };
 
 const normaliseSession = (session: AuthSession): StoredSession => {
@@ -105,7 +104,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       return;
     }
 
-    setProfile(data.profile);
+    if (data) {
+      setProfile(data.profile);
+    }
   }, []);
 
   const persistSession = useCallback(async (nextSession: StoredSession | null) => {
@@ -127,7 +128,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       let parsed: StoredSession | null = null;
       try {
         parsed = JSON.parse(stored) as StoredSession;
-      } catch (error) {
+      } catch (_error) { // eslint-disable-line @typescript-eslint/no-unused-vars
         console.warn('AuthProvider: Failed to parse stored session, clearing.');
         await removeStorageItem(SESSION_STORAGE_KEY);
         return;
@@ -146,7 +147,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           await removeStorageItem(SESSION_STORAGE_KEY);
           return;
         }
-        if (data.session) {
+        if (data && data.session) {
           activeSession = normaliseSession(data.session);
         }
       }
@@ -158,9 +159,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         return;
       }
 
-      setSession(activeSession);
-      setUser(userData.user);
-      await loadProfile(activeSession.access_token, userData.user.id);
+      if (userData && userData.user) {
+        setSession(activeSession);
+        setUser(userData.user);
+        await loadProfile(activeSession.access_token, userData.user.id);
+      }
       await persistSession(activeSession);
     } catch (error) {
       console.error('AuthProvider: bootstrap error:', error);
@@ -190,7 +193,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (error) {
         return { error: { message: error.message } };
       }
-      if (!data.session || !data.user) {
+      if (!data || !data.session || !data.user) {
         return { error: { message: 'Unable to sign in with the provided credentials.' } };
       }
 
@@ -230,7 +233,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         return { error: { message: error.message } };
       }
 
-      if (data.session && data.user) {
+      if (data && data.session && data.user) {
         const nextSession = normaliseSession(data.session);
         setSession(nextSession);
         setUser(data.user);
@@ -313,7 +316,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         return { error: new Error(error.message) };
       }
 
-      setProfile(data.profile);
+      if (data) {
+        setProfile(data.profile);
+      }
       return { error: null };
     } catch (error) {
       console.error('AuthProvider: Update profile exception:', error);

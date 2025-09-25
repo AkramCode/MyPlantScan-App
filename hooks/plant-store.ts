@@ -4,14 +4,15 @@ import { useState, useCallback, useMemo } from 'react';
 import { PlantIdentification, PlantHealth, UserPlant } from '@/types/plant';
 import { Platform } from 'react-native';
 import { openRouterService } from '@/lib/openrouter';
+import { mockIdentifications, mockUserPlants } from '@/mocks/plants';
 
 // Simple storage helper
 const getStorageItem = async (key: string): Promise<string | null> => {
   if (Platform.OS === 'web') {
     return localStorage.getItem(key);
   } else {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    return await AsyncStorage.getItem(key);
+    const AsyncStorage = await import('@react-native-async-storage/async-storage');
+    return await AsyncStorage.default.getItem(key);
   }
 };
 
@@ -19,11 +20,10 @@ const setStorageItem = async (key: string, value: string): Promise<void> => {
   if (Platform.OS === 'web') {
     localStorage.setItem(key, value);
   } else {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    await AsyncStorage.setItem(key, value);
+    const AsyncStorage = await import('@react-native-async-storage/async-storage');
+    await AsyncStorage.default.setItem(key, value);
   }
 };
-import { mockIdentifications, mockUserPlants } from '@/mocks/plants';
 
 const STORAGE_KEYS = {
   IDENTIFICATIONS: 'plant_identifications',
@@ -318,7 +318,7 @@ const buildCareInstructionsFromObject = (
     return '';
   }
   const segments: string[] = [];
-  const pairs: Array<[string, string]> = [
+  const pairs: [string, string][] = [
     ['light', 'Light'],
     ['sunlight', 'Sunlight'],
     ['exposure', 'Exposure'],
@@ -425,46 +425,55 @@ const normalizePlantIdentification = (raw: unknown): PlantDetails => {
   const normalized = createDefaultPlantDetails();
   const source = isRecord(raw) ? raw : {};
 
-  const care =
+  const care: Record<string, unknown> | undefined =
     (isRecord(source['careDetails']) && (source['careDetails'] as Record<string, unknown>)) ||
     (isRecord(source['careInfo']) && (source['careInfo'] as Record<string, unknown>)) ||
-    (isRecord(source['care']) && (source['care'] as Record<string, unknown>));
+    (isRecord(source['care']) && (source['care'] as Record<string, unknown>)) ||
+    undefined;
 
-  const taxonomy =
+  const taxonomy: Record<string, unknown> | undefined =
     (isRecord(source['taxonomy']) && (source['taxonomy'] as Record<string, unknown>)) ||
     (isRecord(source['scientificClassification']) && (source['scientificClassification'] as Record<string, unknown>)) ||
-    (isRecord(source['classification']) && (source['classification'] as Record<string, unknown>));
+    (isRecord(source['classification']) && (source['classification'] as Record<string, unknown>)) ||
+    undefined;
 
-  const morphology =
+  const morphology: Record<string, unknown> | undefined =
     (isRecord(source['morphology']) && (source['morphology'] as Record<string, unknown>)) ||
     (isRecord(source['physicalCharacteristics']) && (source['physicalCharacteristics'] as Record<string, unknown>)) ||
-    (isRecord(source['characteristics']) && (source['characteristics'] as Record<string, unknown>));
+    (isRecord(source['characteristics']) && (source['characteristics'] as Record<string, unknown>)) ||
+    undefined;
 
-  const habitat =
+  const habitat: Record<string, unknown> | undefined =
     (isRecord(source['habitat']) && (source['habitat'] as Record<string, unknown>)) ||
     (isRecord(source['growingConditions']) && (source['growingConditions'] as Record<string, unknown>)) ||
-    (isRecord(source['environment']) && (source['environment'] as Record<string, unknown>));
+    (isRecord(source['environment']) && (source['environment'] as Record<string, unknown>)) ||
+    undefined;
 
-  const distribution =
+  const distribution: Record<string, unknown> | undefined =
     (isRecord(source['distribution']) && (source['distribution'] as Record<string, unknown>)) ||
     (isRecord(source['range']) && (source['range'] as Record<string, unknown>)) ||
-    (isRecord(source['geography']) && (source['geography'] as Record<string, unknown>));
+    (isRecord(source['geography']) && (source['geography'] as Record<string, unknown>)) ||
+    undefined;
 
-  const uses =
+  const uses: Record<string, unknown> | undefined =
     (isRecord(source['uses']) && (source['uses'] as Record<string, unknown>)) ||
-    (isRecord(source['applications']) && (source['applications'] as Record<string, unknown>));
+    (isRecord(source['applications']) && (source['applications'] as Record<string, unknown>)) ||
+    undefined;
 
-  const conservation =
+  const conservation: Record<string, unknown> | undefined =
     (isRecord(source['conservationStatus']) && (source['conservationStatus'] as Record<string, unknown>)) ||
-    (isRecord(source['conservation']) && (source['conservation'] as Record<string, unknown>));
+    (isRecord(source['conservation']) && (source['conservation'] as Record<string, unknown>)) ||
+    undefined;
 
-  const seasonality =
+  const seasonality: Record<string, unknown> | undefined =
     (isRecord(source['seasonality']) && (source['seasonality'] as Record<string, unknown>)) ||
-    (isRecord(source['seasonalInformation']) && (source['seasonalInformation'] as Record<string, unknown>));
+    (isRecord(source['seasonalInformation']) && (source['seasonalInformation'] as Record<string, unknown>)) ||
+    undefined;
 
-  const propagation =
+  const propagation: Record<string, unknown> | undefined =
     (isRecord(source['propagation']) && (source['propagation'] as Record<string, unknown>)) ||
-    (isRecord(source['propagationInfo']) && (source['propagationInfo'] as Record<string, unknown>));
+    (isRecord(source['propagationInfo']) && (source['propagationInfo'] as Record<string, unknown>)) ||
+    undefined;
 
   normalized.plantName = firstNonEmptyString(
     [
@@ -925,7 +934,7 @@ const normalizeHealthRecord = (
       diagnosisSource?.['plantName'],
       context?.plantName,
     ],
-    defaults.plantName,
+    defaults.plantName || 'Unknown Plant',
   );
 
   normalized.scientificName = firstNonEmptyString(
@@ -935,7 +944,7 @@ const normalizeHealthRecord = (
       diagnosisSource?.['scientificName'],
       context?.scientificName,
     ],
-    defaults.scientificName,
+    defaults.scientificName || 'Species unknown',
   );
 
   normalized.healthStatus = normalizeHealthStatus(
@@ -1283,7 +1292,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
       console.log('Setting isIdentifying to false');
       setIsIdentifying(false);
     }
-  }, [saveIdentificationMutation.mutateAsync]);
+  }, [saveIdentificationMutation]);
 
   // Analyze plant health
   const analyzeHealth = useCallback(async (imageUri: string, plantId?: string): Promise<PlantHealth> => {
@@ -1397,7 +1406,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
     } finally {
       setIsAnalyzingHealth(false);
     }
-  }, [saveHealthRecordMutation.mutateAsync, identificationsQuery.data]);
+  }, [saveHealthRecordMutation, identificationsQuery.data]);
 
   // Add plant to garden
   const addToGarden = useCallback(async (identification: PlantIdentification, location: string = '', notes: string = '') => {
@@ -1414,7 +1423,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
 
     await saveUserPlantMutation.mutateAsync(userPlant);
     return userPlant;
-  }, [saveUserPlantMutation.mutateAsync]);
+  }, [saveUserPlantMutation]);
 
   // Remove plant from garden mutation
   const removeFromGardenMutation = useMutation({
@@ -1432,7 +1441,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
   // Remove plant from garden
   const removeFromGarden = useCallback(async (plantId: string) => {
     await removeFromGardenMutation.mutateAsync(plantId);
-  }, [removeFromGardenMutation.mutateAsync]);
+  }, [removeFromGardenMutation]);
 
   return useMemo(() => ({
     // Data
