@@ -43,12 +43,12 @@ export default function PlantDetailsScreen() {
 
   const handleBackPress = () => {
     if (source === 'camera') {
-      router.push('/(tabs)/');
+      router.push('/');
     } else if (source === 'garden') {
-      router.push('/(tabs)/garden');
+      router.push('/garden');
     } else {
       // Default to home for 'home' source or any other case
-      router.push('/(tabs)/');
+      router.push('/');
     }
   };
 
