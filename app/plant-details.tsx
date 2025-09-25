@@ -569,7 +569,7 @@ export default function PlantDetailsScreen() {
             const healthRecord = await analyzeHealth(identification.imageUri, identification.id);
             console.log('Health analysis completed successfully, health record ID:', healthRecord.id);
             // Navigate to health report using the health record ID
-            router.push(`/health-report?id=${healthRecord.id}`);
+            router.push(`/health-report?id=${healthRecord.id}&source=plant-details`);
           } catch (error) {
             console.error('Health analysis failed:', error);
             showAlert('Error', 'Failed to analyze plant health. Please try again.');

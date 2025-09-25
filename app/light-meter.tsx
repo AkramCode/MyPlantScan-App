@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
-
+  Alert,
+  TextInput,
 } from 'react-native';
+import { LightSensor } from 'expo-sensors';
 import {
   ArrowLeft,
   Sun,
@@ -38,28 +40,81 @@ export default function LightMeterScreen() {
   const [currentReading, setCurrentReading] = useState<LightReading | null>(null);
   const [animatedValue] = useState(new Animated.Value(0));
   const [readings, setReadings] = useState<number[]>([]);
+  const [sensorAvailable, setSensorAvailable] = useState<boolean | null>(null);
+  const [manualLux, setManualLux] = useState<string>('500');
+  const sensorSubscription = useRef<ReturnType<typeof LightSensor.addListener> | null>(null);
 
   useEffect(() => {
-    if (isReading) {
-      const interval = setInterval(() => {
-        // Simulate light sensor readings
-        const mockLux = Math.floor(Math.random() * 50000) + 50;
-        setReadings(prev => [...prev.slice(-9), mockLux]);
-        
-        const reading = analyzeLightLevel(mockLux);
-        setCurrentReading(reading);
-        
-        // Animate the meter
-        Animated.timing(animatedValue, {
-          toValue: Math.min(mockLux / 50000, 1),
-          duration: 500,
-          useNativeDriver: false,
-        }).start();
-      }, 1000);
+    let isMounted = true;
+    LightSensor.isAvailableAsync()
+      .then((available) => {
+        if (isMounted) {
+          setSensorAvailable(available);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSensorAvailable(false);
+        }
+      });
 
-      return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      sensorSubscription.current?.remove();
+      sensorSubscription.current = null;
+    };
+  }, []);
+
+  const applyReading = (luxValue: number) => {
+    const lux = Number.isFinite(luxValue) ? Math.max(0, luxValue) : 0;
+    setReadings((prev) => [...prev.slice(-59), lux]);
+    const reading = analyzeLightLevel(lux);
+    setCurrentReading(reading);
+
+    Animated.timing(animatedValue, {
+      toValue: Math.min(lux / 50000, 1),
+      duration: 400,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const ensureSensorAvailability = async (): Promise<boolean> => {
+    if (sensorAvailable === true) {
+      return true;
     }
-  }, [isReading, animatedValue]);
+
+    try {
+      const available = await LightSensor.isAvailableAsync();
+      setSensorAvailable(available);
+      return available;
+    } catch {
+      setSensorAvailable(false);
+      return false;
+    }
+  };
+
+
+
+  const manualPresets = [
+    { label: 'Deep shade', value: 75, helper: 'Interior hallway or north-facing corner' },
+    { label: 'Bright indirect', value: 1500, helper: 'East window 1-2 metres away' },
+    { label: 'Bright window', value: 5000, helper: 'South window with sheer curtain' },
+    { label: 'Direct sun', value: 25000, helper: 'Full afternoon sun or outdoors' },
+  ];
+
+  const handleManualSubmit = () => {
+    const luxValue = Number.parseFloat(manualLux);
+    if (!Number.isFinite(luxValue)) {
+      Alert.alert('Invalid value', 'Enter a numeric lux value between 0 and 100000.');
+      return;
+    }
+
+    if (isReading) {
+      stopReading();
+    }
+
+    applyReading(Math.max(0, luxValue));
+  };
 
   const analyzeLightLevel = (lux: number): LightReading => {
     let level: LightLevel;
@@ -112,13 +167,34 @@ export default function LightMeterScreen() {
     return { lux, level, recommendation, suitablePlants, tips };
   };
 
-  const startReading = () => {
+  const startReading = async () => {
+    const available = await ensureSensorAvailability();
+    if (!available) {
+      Alert.alert(
+        'Ambient light sensor unavailable',
+        'Your device does not expose an ambient light sensor. Use the manual estimator below to evaluate lighting.',
+      );
+      return;
+    }
+
+    sensorSubscription.current?.remove();
+    LightSensor.setUpdateInterval(1000);
     setIsReading(true);
     setReadings([]);
     setCurrentReading(null);
+
+    sensorSubscription.current = LightSensor.addListener((measurement) => {
+      const lux =
+        typeof measurement.illuminance === 'number' && Number.isFinite(measurement.illuminance)
+          ? measurement.illuminance
+          : 0;
+      applyReading(lux);
+    });
   };
 
   const stopReading = () => {
+    sensorSubscription.current?.remove();
+    sensorSubscription.current = null;
     setIsReading(false);
   };
 
@@ -216,25 +292,74 @@ export default function LightMeterScreen() {
           </View>
 
           {/* Control Button */}
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              isReading ? styles.stopButton : styles.startButton,
-            ]}
-            onPress={isReading ? stopReading : startReading}
-          >
-            {isReading ? (
-              <>
-                <View style={styles.stopIcon} />
-                <Text style={styles.controlButtonText}>Stop Reading</Text>
-              </>
-            ) : (
-              <>
-                <Sun size={20} color="#FFFFFF" />
-                <Text style={styles.controlButtonText}>Start Light Reading</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {sensorAvailable !== false && (
+            <TouchableOpacity
+              style={[
+                styles.controlButton,
+                isReading ? styles.stopButton : styles.startButton,
+              ]}
+              onPress={isReading ? stopReading : startReading}
+            >
+              {isReading ? (
+                <>
+                  <View style={styles.stopIcon} />
+                  <Text style={styles.controlButtonText}>Stop Reading</Text>
+                </>
+              ) : (
+                <>
+                  <Sun size={20} color="#FFFFFF" />
+                  <Text style={styles.controlButtonText}>Start Light Reading</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {sensorAvailable === false && (
+            <View style={styles.sensorWarning}>
+              <AlertTriangle size={16} color="#F97316" />
+              <Text style={styles.sensorWarningText}>Your device does not provide an ambient light sensor. Use the manual estimator below to benchmark lighting.</Text>
+            </View>
+          )}
+
+          {/* Manual Estimator */}
+          <View style={styles.manualContainer}>
+            <View style={styles.sectionHeader}>
+              <AlertTriangle size={16} color="#F59E0B" />
+              <Text style={styles.manualTitle}>Manual Light Estimator</Text>
+            </View>
+            <Text style={styles.manualDescription}>Input a lux value from a dedicated meter or choose a preset to approximate common indoor conditions.</Text>
+            <View style={styles.manualInputRow}>
+              <TextInput
+                style={styles.manualInput}
+                value={manualLux}
+                onChangeText={setManualLux}
+                keyboardType="numeric"
+                placeholder="e.g. 1200"
+                returnKeyType="done"
+              />
+              <TouchableOpacity style={styles.manualApplyButton} onPress={handleManualSubmit}>
+                <Text style={styles.manualApplyText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.manualPresetRow}>
+              {manualPresets.map((preset) => (
+                <TouchableOpacity
+                  key={preset.label}
+                  style={styles.manualPresetButton}
+                  onPress={() => {
+                    if (isReading) {
+                      stopReading();
+                    }
+                    setManualLux(String(preset.value));
+                    applyReading(preset.value);
+                  }}
+                >
+                  <Text style={styles.manualPresetLabel}>{preset.label}</Text>
+                  <Text style={styles.manualPresetHelper}>{preset.helper}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
           {/* Current Reading Results */}
           {currentReading && (
@@ -275,7 +400,7 @@ export default function LightMeterScreen() {
                 </View>
                 {currentReading.tips.map((tip, index) => (
                   <Text key={`tip-${index}-${tip.slice(0, 10)}`} style={styles.tipText}>
-                    â€¢ {tip}
+                    • {tip}
                   </Text>
                 ))}
               </View>
@@ -358,7 +483,7 @@ export default function LightMeterScreen() {
           <View style={styles.warningContainer}>
             <AlertTriangle size={16} color="#F59E0B" />
             <Text style={styles.warningText}>
-              Note: This light meter uses your device&apos;s ambient light sensor and provides approximate readings. For precise measurements, use a dedicated light meter.
+              Note: This light meter reads from your device&apos;s ambient sensor when available. Use the manual estimator for devices without a sensor or when benchmarking external meter readings.
             </Text>
           </View>
         </View>
@@ -480,6 +605,94 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  sensorWarning: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 16,
+  },
+  sensorWarningText: {
+    flex: 1,
+    color: '#92400E',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  manualContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    marginBottom: 24,
+  },
+  manualTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 6,
+  },
+  manualDescription: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginTop: 8,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  manualInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  manualInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#111827',
+  },
+  manualApplyButton: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  manualApplyText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  manualPresetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  manualPresetButton: {
+    flexBasis: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+  },
+  manualPresetLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  manualPresetHelper: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    lineHeight: 16,
   },
   resultsContainer: {
     backgroundColor: '#FFFFFF',

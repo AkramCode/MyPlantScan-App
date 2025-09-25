@@ -166,7 +166,7 @@ export default function CameraScreen() {
           // Navigate after cleanup
           cleanupTimeoutRef.current = setTimeout(() => {
             if (mountedRef.current) {
-              router.replace(`/health-report?id=${healthRecord.id}`);
+              router.replace(`/health-report?id=${healthRecord.id}&source=camera`);
             }
           }, 150);
         }

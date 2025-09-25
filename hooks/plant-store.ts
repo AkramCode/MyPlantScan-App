@@ -4,8 +4,6 @@ import { useState, useCallback, useMemo } from 'react';
 import { PlantIdentification, PlantHealth, UserPlant } from '@/types/plant';
 import { Platform } from 'react-native';
 import { openRouterService } from '@/lib/openrouter';
-import { mockIdentifications, mockUserPlants } from '@/mocks/plants';
-
 // Simple storage helper
 const getStorageItem = async (key: string): Promise<string | null> => {
   if (Platform.OS === 'web') {
@@ -1112,19 +1110,18 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
         const stored = await getStorageItem(STORAGE_KEYS.IDENTIFICATIONS);
         if (stored) {
           const parsed = JSON.parse(stored);
-          // Validate that it's an array
           if (Array.isArray(parsed)) {
-            return parsed;
+            return parsed as PlantIdentification[];
           }
+        } else {
+          await setStorageItem(STORAGE_KEYS.IDENTIFICATIONS, JSON.stringify([]));
         }
       } catch (error) {
         console.error('Error parsing stored identifications:', error);
-        // Clear corrupted data
-        await setStorageItem(STORAGE_KEYS.IDENTIFICATIONS, JSON.stringify(mockIdentifications));
       }
-      // Return mock data if no stored data exists or parsing failed
-      await setStorageItem(STORAGE_KEYS.IDENTIFICATIONS, JSON.stringify(mockIdentifications));
-      return mockIdentifications;
+
+      await setStorageItem(STORAGE_KEYS.IDENTIFICATIONS, JSON.stringify([]));
+      return [];
     },
   });
 
@@ -1136,16 +1133,17 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
         const stored = await getStorageItem(STORAGE_KEYS.HEALTH_RECORDS);
         if (stored) {
           const parsed = JSON.parse(stored);
-          // Validate that it's an array
           if (Array.isArray(parsed)) {
-            return parsed;
+            return parsed as PlantHealth[];
           }
+        } else {
+          await setStorageItem(STORAGE_KEYS.HEALTH_RECORDS, JSON.stringify([]));
         }
       } catch (error) {
         console.error('Error parsing stored health records:', error);
-        // Clear corrupted data
-        await setStorageItem(STORAGE_KEYS.HEALTH_RECORDS, JSON.stringify([]));
       }
+
+      await setStorageItem(STORAGE_KEYS.HEALTH_RECORDS, JSON.stringify([]));
       return [];
     },
   });
@@ -1158,19 +1156,18 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
         const stored = await getStorageItem(STORAGE_KEYS.USER_PLANTS);
         if (stored) {
           const parsed = JSON.parse(stored);
-          // Validate that it's an array
           if (Array.isArray(parsed)) {
-            return parsed;
+            return parsed as UserPlant[];
           }
+        } else {
+          await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify([]));
         }
       } catch (error) {
         console.error('Error parsing stored user plants:', error);
-        // Clear corrupted data
-        await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify(mockUserPlants));
       }
-      // Return mock data if no stored data exists or parsing failed
-      await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify(mockUserPlants));
-      return mockUserPlants;
+
+      await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify([]));
+      return [];
     },
   });
 

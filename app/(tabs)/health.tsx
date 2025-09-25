@@ -167,7 +167,7 @@ export default function HealthScreen() {
                 <TouchableOpacity 
                   key={record.id} 
                   style={styles.healthCard}
-                  onPress={() => router.push(`/health-report?id=${record.id}`)}
+                  onPress={() => router.push(`/health-report?id=${record.id}&source=health`)}
                 >
                   <Image source={{ uri: record.imageUri }} style={styles.healthImage} />
                   <View style={styles.healthContent}>
