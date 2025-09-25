@@ -69,6 +69,23 @@ const toStringArray = (value: unknown, fallback: string[] = []): string[] => {
   return [...fallback];
 };
 
+const flattenToStringArray = (value: unknown, fallback: string[] = []): string[] => {
+  if (Array.isArray(value)) {
+    return toStringArray(value, fallback);
+  }
+
+  if (isRecord(value)) {
+    const collected = Object.values(value)
+      .map(toNonEmptyString)
+      .filter(Boolean);
+    if (collected.length) {
+      return collected;
+    }
+  }
+
+  return toStringArray(value, fallback);
+};
+
 const firstNonEmptyString = (candidates: unknown[], fallback: string): string => {
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) {
@@ -90,6 +107,12 @@ const firstNonEmptyString = (candidates: unknown[], fallback: string): string =>
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
+
+const toNormalizedKey = (value: unknown): string =>
+  toNonEmptyString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 
 const parseConfidenceScore = (value: unknown, fallback: number): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -158,6 +181,134 @@ const interpretPropagationDifficulty = (
     return 'Difficult';
   }
   return 'Moderate';
+};
+
+const HEALTH_STATUS_VALUES: PlantHealth['healthStatus'][] = [
+  'healthy',
+  'diseased',
+  'pest',
+  'nutrient_deficiency',
+  'overwatered',
+  'underwatered',
+];
+
+const normalizeHealthStatus = (
+  value: unknown,
+  fallback: PlantHealth['healthStatus'],
+): PlantHealth['healthStatus'] => {
+  const key = toNormalizedKey(value);
+  if (!key) {
+    return fallback;
+  }
+
+  if (HEALTH_STATUS_VALUES.includes(key as PlantHealth['healthStatus'])) {
+    return key as PlantHealth['healthStatus'];
+  }
+
+  if (key.includes('pest')) {
+    return 'pest';
+  }
+
+  if (key.includes('diseas') || key.includes('infect') || key.includes('blight') || key.includes('rot')) {
+    return 'diseased';
+  }
+
+  if (key.includes('nutrient') || key.includes('deficien')) {
+    return 'nutrient_deficiency';
+  }
+
+  if (key.includes('overwater') || key.includes('waterlog') || key.includes('too_much_water')) {
+    return 'overwatered';
+  }
+
+  if (key.includes('underwater') || key.includes('drought') || key.includes('too_little_water') || key.includes('dry')) {
+    return 'underwatered';
+  }
+
+  if (key.includes('healthy') || key.includes('thriving') || key.includes('vigorous')) {
+    return 'healthy';
+  }
+
+  return fallback;
+};
+
+const normalizeSeverity = (
+  value: unknown,
+  fallback: PlantHealth['severity'],
+): PlantHealth['severity'] => {
+  const key = toNormalizedKey(value);
+  if (!key) {
+    return fallback;
+  }
+
+  if (key.startsWith('low') || key.startsWith('mild') || key.includes('slight')) {
+    return 'low';
+  }
+
+  if (key.startsWith('medium') || key.includes('moderate') || key === 'mid') {
+    return 'medium';
+  }
+
+  if (key.startsWith('high') || key.includes('severe') || key.includes('critical')) {
+    return 'high';
+  }
+
+  return fallback;
+};
+
+type ProgressionStage = PlantHealth['diagnosis']['progressionStage'];
+type Prognosis = PlantHealth['diagnosis']['prognosis'];
+
+const normalizeProgressionStage = (
+  value: unknown,
+  fallback: ProgressionStage,
+): ProgressionStage => {
+  const key = toNormalizedKey(value);
+  if (!key) {
+    return fallback;
+  }
+
+  if (key.includes('advanced') || key.includes('late') || key.includes('severe')) {
+    return 'advanced';
+  }
+
+  if (key.includes('moderate') || key.includes('mid') || key.includes('middle')) {
+    return 'moderate';
+  }
+
+  if (key.includes('early') || key.includes('initial') || key.includes('mild')) {
+    return 'early';
+  }
+
+  return fallback;
+};
+
+const normalizePrognosis = (
+  value: unknown,
+  fallback: Prognosis,
+): Prognosis => {
+  const key = toNormalizedKey(value);
+  if (!key) {
+    return fallback;
+  }
+
+  if (key.includes('excellent') || key.includes('very_good') || key.includes('strong')) {
+    return 'excellent';
+  }
+
+  if (key.includes('good') || key.includes('favourable') || key.includes('favorable')) {
+    return 'good';
+  }
+
+  if (key.includes('fair') || key.includes('uncertain') || key.includes('guarded')) {
+    return 'fair';
+  }
+
+  if (key.includes('poor') || key.includes('bad') || key.includes('critical')) {
+    return 'poor';
+  }
+
+  return fallback;
 };
 
 const buildCareInstructionsFromObject = (
@@ -683,6 +834,262 @@ const normalizePlantIdentification = (raw: unknown): PlantDetails => {
   return normalized;
 };
 
+type HealthRecordDetails = Omit<PlantHealth, 'id' | 'plantId' | 'timestamp' | 'imageUri'>;
+
+const createDefaultHealthDetails = (): HealthRecordDetails => ({
+  plantName: 'Unknown Plant',
+  scientificName: 'Species unknown',
+  healthStatus: 'healthy',
+  issues: [],
+  recommendations: ['Continue regular care routine'],
+  severity: 'low',
+  diagnosis: {
+    primaryCondition: 'Unable to determine condition from image',
+    secondaryConditions: [],
+    affectedParts: [],
+    progressionStage: 'early',
+    prognosis: 'fair',
+  },
+  symptoms: {
+    visual: [],
+    physical: [],
+    environmental: [],
+  },
+  treatment: {
+    immediate: ['Take clearer photo for better analysis'],
+    shortTerm: ['Continue regular care'],
+    longTerm: ['Monitor plant health'],
+    preventive: ['Maintain good growing conditions'],
+  },
+  causes: {
+    primary: 'Unable to determine',
+    contributing: [],
+    environmental: [],
+  },
+  monitoring: {
+    checkFrequency: 'Weekly',
+    keyIndicators: ['Overall plant appearance', 'Growth rate'],
+    recoveryTimeframe: 'N/A',
+  },
+  riskFactors: [],
+});
+
+const normalizeHealthRecord = (
+  raw: unknown,
+  context?: { plantName?: string; scientificName?: string },
+): HealthRecordDetails => {
+  const defaults = createDefaultHealthDetails();
+  const normalized: HealthRecordDetails = {
+    ...defaults,
+    issues: [...defaults.issues],
+    recommendations: [...defaults.recommendations],
+    diagnosis: {
+      ...defaults.diagnosis,
+      secondaryConditions: [...defaults.diagnosis.secondaryConditions],
+      affectedParts: [...defaults.diagnosis.affectedParts],
+    },
+    symptoms: {
+      visual: [...defaults.symptoms.visual],
+      physical: [...defaults.symptoms.physical],
+      environmental: [...defaults.symptoms.environmental],
+    },
+    treatment: {
+      immediate: [...defaults.treatment.immediate],
+      shortTerm: [...defaults.treatment.shortTerm],
+      longTerm: [...defaults.treatment.longTerm],
+      preventive: [...defaults.treatment.preventive],
+    },
+    causes: {
+      ...defaults.causes,
+      contributing: [...defaults.causes.contributing],
+      environmental: [...defaults.causes.environmental],
+    },
+    monitoring: {
+      ...defaults.monitoring,
+      keyIndicators: [...defaults.monitoring.keyIndicators],
+    },
+    riskFactors: [...defaults.riskFactors],
+  };
+
+  const source = isRecord(raw) ? raw : {};
+  const diagnosisSource = isRecord(source['diagnosis']) ? (source['diagnosis'] as Record<string, unknown>) : undefined;
+  const symptomsSource = isRecord(source['symptoms']) ? (source['symptoms'] as Record<string, unknown>) : undefined;
+  const treatmentSource = isRecord(source['treatment']) ? (source['treatment'] as Record<string, unknown>) : undefined;
+  const causesSource = isRecord(source['causes']) ? (source['causes'] as Record<string, unknown>) : undefined;
+  const monitoringSource = isRecord(source['monitoring']) ? (source['monitoring'] as Record<string, unknown>) : undefined;
+
+  normalized.plantName = firstNonEmptyString(
+    [
+      source['plantName'],
+      source['commonName'],
+      diagnosisSource?.['plantName'],
+      context?.plantName,
+    ],
+    defaults.plantName,
+  );
+
+  normalized.scientificName = firstNonEmptyString(
+    [
+      source['scientificName'],
+      source['botanicalName'],
+      diagnosisSource?.['scientificName'],
+      context?.scientificName,
+    ],
+    defaults.scientificName,
+  );
+
+  normalized.healthStatus = normalizeHealthStatus(
+    source['healthStatus'] ?? source['overallHealth'] ?? source['status'],
+    defaults.healthStatus,
+  );
+
+  normalized.severity = normalizeSeverity(
+    source['severity'] ?? diagnosisSource?.['severity'],
+    defaults.severity,
+  );
+
+  normalized.issues = flattenToStringArray(
+    source['issues'] ?? source['concerns'] ?? source['problems'],
+    defaults.issues,
+  );
+
+  const recommendationsSource = source['recommendations'];
+  if (Array.isArray(recommendationsSource) || isRecord(recommendationsSource)) {
+    normalized.recommendations = flattenToStringArray(recommendationsSource, defaults.recommendations);
+  } else {
+    normalized.recommendations = flattenToStringArray(
+      [recommendationsSource, source['care'], source['actions'], source['nextSteps']],
+      defaults.recommendations,
+    );
+  }
+  if (normalized.recommendations.length === 0) {
+    normalized.recommendations = [...defaults.recommendations];
+  }
+
+  normalized.diagnosis.primaryCondition = firstNonEmptyString(
+    [
+      diagnosisSource?.['primaryCondition'],
+      diagnosisSource?.['primary'],
+      diagnosisSource?.['condition'],
+      source['primaryCondition'],
+    ],
+    defaults.diagnosis.primaryCondition,
+  );
+
+  normalized.diagnosis.secondaryConditions = flattenToStringArray(
+    diagnosisSource?.['secondaryConditions'] ?? source['secondaryConditions'],
+    defaults.diagnosis.secondaryConditions,
+  );
+
+  normalized.diagnosis.affectedParts = flattenToStringArray(
+    diagnosisSource?.['affectedParts'] ?? source['affectedParts'],
+    defaults.diagnosis.affectedParts,
+  );
+
+  normalized.diagnosis.progressionStage = normalizeProgressionStage(
+    diagnosisSource?.['progressionStage'] ?? source['progressionStage'],
+    defaults.diagnosis.progressionStage,
+  );
+
+  normalized.diagnosis.prognosis = normalizePrognosis(
+    diagnosisSource?.['prognosis'] ?? source['prognosis'],
+    defaults.diagnosis.prognosis,
+  );
+
+  normalized.symptoms.visual = flattenToStringArray(
+    symptomsSource?.['visual'] ?? symptomsSource?.['visible'] ?? source['visualSymptoms'],
+    defaults.symptoms.visual,
+  );
+
+  normalized.symptoms.physical = flattenToStringArray(
+    symptomsSource?.['physical'] ?? source['physicalSymptoms'],
+    defaults.symptoms.physical,
+  );
+
+  normalized.symptoms.environmental = flattenToStringArray(
+    symptomsSource?.['environmental'] ?? symptomsSource?.['environmentalFactors'] ?? source['environmentalSymptoms'] ?? source['environmental'],
+    defaults.symptoms.environmental,
+  );
+
+  normalized.treatment.immediate = flattenToStringArray(
+    treatmentSource?.['immediate'] ?? treatmentSource?.['urgent'] ?? source['immediateActions'],
+    defaults.treatment.immediate,
+  );
+
+  normalized.treatment.shortTerm = flattenToStringArray(
+    treatmentSource?.['shortTerm'] ?? treatmentSource?.['ongoing'] ?? source['shortTermRecommendations'],
+    defaults.treatment.shortTerm,
+  );
+
+  normalized.treatment.longTerm = flattenToStringArray(
+    treatmentSource?.['longTerm'] ?? treatmentSource?.['longterm'] ?? treatmentSource?.['longRange'] ?? source['longTermRecommendations'],
+    defaults.treatment.longTerm,
+  );
+
+  normalized.treatment.preventive = flattenToStringArray(
+    treatmentSource?.['preventive'] ?? treatmentSource?.['preventative'] ?? source['preventiveRecommendations'],
+    defaults.treatment.preventive,
+  );
+
+  normalized.causes.primary = firstNonEmptyString(
+    [
+      causesSource?.['primary'],
+      causesSource?.['rootCause'],
+      source['primaryCause'],
+      source['cause'],
+    ],
+    defaults.causes.primary,
+  );
+
+  normalized.causes.contributing = flattenToStringArray(
+    causesSource?.['contributing'] ?? source['contributingFactors'],
+    defaults.causes.contributing,
+  );
+
+  normalized.causes.environmental = flattenToStringArray(
+    causesSource?.['environmental'] ?? source['environmentalFactors'],
+    defaults.causes.environmental,
+  );
+
+  normalized.monitoring.checkFrequency = firstNonEmptyString(
+    [
+      monitoringSource?.['checkFrequency'],
+      monitoringSource?.['frequency'],
+      source['monitoringFrequency'],
+    ],
+    defaults.monitoring.checkFrequency,
+  );
+
+  normalized.monitoring.keyIndicators = flattenToStringArray(
+    monitoringSource?.['keyIndicators'] ?? source['keyIndicators'],
+    defaults.monitoring.keyIndicators,
+  );
+
+  normalized.monitoring.recoveryTimeframe = firstNonEmptyString(
+    [
+      monitoringSource?.['recoveryTimeframe'],
+      monitoringSource?.['recoveryTimeline'],
+      source['recoveryTimeframe'],
+    ],
+    defaults.monitoring.recoveryTimeframe,
+  );
+
+  normalized.riskFactors = flattenToStringArray(
+    source['riskFactors'] ?? causesSource?.['riskFactors'],
+    defaults.riskFactors,
+  );
+
+  if (context?.plantName && (!normalized.plantName || normalized.plantName === defaults.plantName)) {
+    normalized.plantName = context.plantName;
+  }
+
+  if (context?.scientificName && (!normalized.scientificName || normalized.scientificName === defaults.scientificName)) {
+    normalized.scientificName = context.scientificName;
+  }
+
+  return normalized;
+};
+
 export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [isIdentifying, setIsIdentifying] = useState(false);
@@ -910,135 +1317,66 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
       console.log('Image converted to base64, making API request...');
       
       // Use OpenRouter for health analysis
-      const aiResponseText = await openRouterService.analyzeHealth(base64);
+      const identificationContext = plantId
+        ? (identificationsQuery.data || []).find(item => item.id === plantId)
+        : undefined;
+
+      const aiResponseText = await openRouterService.analyzeHealth({
+        imageBase64: base64,
+        plantName: identificationContext?.plantName,
+        scientificName: identificationContext?.scientificName,
+        maxTokens: 2600,
+      });
 
       console.log('Raw OpenRouter health analysis response:', aiResponseText);
-      
-      let healthData;
+
+      let healthDetails: HealthRecordDetails;
       try {
-        // Clean the response text and try to find JSON
         const cleanedText = aiResponseText.trim();
-        
-        // Multiple strategies to extract JSON
         let jsonText = '';
-        
-        // Strategy 1: Look for JSON code blocks
+
         const jsonBlockMatch = cleanedText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/i);
         if (jsonBlockMatch) {
           jsonText = jsonBlockMatch[1];
         } else {
-          // Strategy 2: Look for the first { and last }
           const firstBrace = cleanedText.indexOf('{');
           const lastBrace = cleanedText.lastIndexOf('}');
-          
+
           if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
             jsonText = cleanedText.substring(firstBrace, lastBrace + 1);
           } else {
-            // Strategy 3: Try the entire response as JSON
             jsonText = cleanedText;
           }
         }
-        
+
         console.log('Extracted health JSON text:', jsonText);
-        
+
         if (!jsonText) {
           throw new Error('No JSON content found in response');
         }
-        
-        // Clean up common JSON formatting issues
+
         jsonText = jsonText
-          .replace(/\n/g, ' ')  // Replace newlines with spaces
-          .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
-          .replace(/,\s*}/g, '}')  // Remove trailing commas
-          .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+          .replace(/\u0000/g, '')
+          .replace(/\r?\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
           .trim();
-        
-        // Parse the JSON
-        healthData = JSON.parse(jsonText);
-        
-        // Validate and set defaults for required fields
-        healthData.healthStatus = healthData.healthStatus || 'healthy';
-        healthData.issues = Array.isArray(healthData.issues) ? healthData.issues : [];
-        healthData.recommendations = Array.isArray(healthData.recommendations) ? healthData.recommendations : ['Continue regular care routine'];
-        healthData.severity = healthData.severity || 'low';
-        healthData.plantName = healthData.plantName || 'Unknown Plant';
-        healthData.scientificName = healthData.scientificName || 'Species unknown';
-        
-        // Set defaults for complex nested objects
-        healthData.diagnosis = healthData.diagnosis || {};
-        healthData.diagnosis.primaryCondition = healthData.diagnosis.primaryCondition || 'Unable to determine condition';
-        healthData.diagnosis.secondaryConditions = Array.isArray(healthData.diagnosis.secondaryConditions) ? healthData.diagnosis.secondaryConditions : [];
-        healthData.diagnosis.affectedParts = Array.isArray(healthData.diagnosis.affectedParts) ? healthData.diagnosis.affectedParts : [];
-        healthData.diagnosis.progressionStage = healthData.diagnosis.progressionStage || 'early';
-        healthData.diagnosis.prognosis = healthData.diagnosis.prognosis || 'fair';
-        
-        healthData.symptoms = healthData.symptoms || {};
-        healthData.symptoms.visual = Array.isArray(healthData.symptoms.visual) ? healthData.symptoms.visual : [];
-        healthData.symptoms.physical = Array.isArray(healthData.symptoms.physical) ? healthData.symptoms.physical : [];
-        healthData.symptoms.environmental = Array.isArray(healthData.symptoms.environmental) ? healthData.symptoms.environmental : [];
-        
-        healthData.treatment = healthData.treatment || {};
-        healthData.treatment.immediate = Array.isArray(healthData.treatment.immediate) ? healthData.treatment.immediate : ['Take clearer photo for better analysis'];
-        healthData.treatment.shortTerm = Array.isArray(healthData.treatment.shortTerm) ? healthData.treatment.shortTerm : ['Continue regular care'];
-        healthData.treatment.longTerm = Array.isArray(healthData.treatment.longTerm) ? healthData.treatment.longTerm : ['Monitor plant health'];
-        healthData.treatment.preventive = Array.isArray(healthData.treatment.preventive) ? healthData.treatment.preventive : ['Maintain good growing conditions'];
-        
-        healthData.causes = healthData.causes || {};
-        healthData.causes.primary = healthData.causes.primary || 'Unable to determine';
-        healthData.causes.contributing = Array.isArray(healthData.causes.contributing) ? healthData.causes.contributing : [];
-        healthData.causes.environmental = Array.isArray(healthData.causes.environmental) ? healthData.causes.environmental : [];
-        
-        healthData.monitoring = healthData.monitoring || {};
-        healthData.monitoring.checkFrequency = healthData.monitoring.checkFrequency || 'Weekly';
-        healthData.monitoring.keyIndicators = Array.isArray(healthData.monitoring.keyIndicators) ? healthData.monitoring.keyIndicators : ['Overall plant appearance', 'Growth rate'];
-        healthData.monitoring.recoveryTimeframe = healthData.monitoring.recoveryTimeframe || 'N/A';
-        
-        healthData.riskFactors = Array.isArray(healthData.riskFactors) ? healthData.riskFactors : [];
-        
-        console.log('Successfully parsed and validated health data:', healthData);
-        
+
+        const parsed = JSON.parse(jsonText);
+        healthDetails = normalizeHealthRecord(parsed, {
+          plantName: identificationContext?.plantName,
+          scientificName: identificationContext?.scientificName,
+        });
+        console.log('Successfully parsed and normalized health data:', healthDetails);
       } catch (parseError) {
         console.error('Failed to parse OpenRouter health analysis response:', parseError);
         console.error('Response that failed to parse:', aiResponseText);
-        
-        // Create fallback health data
-        healthData = {
-          healthStatus: "healthy" as const,
-          issues: [],
-          recommendations: ["Continue regular care routine"],
-          severity: "low" as const,
-          plantName: "Unknown Plant",
-          scientificName: "Species unknown",
-          diagnosis: {
-            primaryCondition: "Unable to determine condition from image",
-            secondaryConditions: [],
-            affectedParts: [],
-            progressionStage: "early" as const,
-            prognosis: "fair" as const
-          },
-          symptoms: {
-            visual: [],
-            physical: [],
-            environmental: []
-          },
-          treatment: {
-            immediate: ["Take clearer photo for better analysis"],
-            shortTerm: ["Continue regular care"],
-            longTerm: ["Monitor plant health"],
-            preventive: ["Maintain good growing conditions"]
-          },
-          causes: {
-            primary: "Unable to determine",
-            contributing: [],
-            environmental: []
-          },
-          monitoring: {
-            checkFrequency: "Weekly",
-            keyIndicators: ["Overall plant appearance", "Growth rate"],
-            recoveryTimeframe: "N/A"
-          },
-          riskFactors: []
-        };
+
+        healthDetails = normalizeHealthRecord({}, {
+          plantName: identificationContext?.plantName,
+          scientificName: identificationContext?.scientificName,
+        });
       }
 
       const healthRecord: PlantHealth = {
@@ -1046,7 +1384,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
         plantId: plantId || '',
         timestamp: Date.now(),
         imageUri,
-        ...healthData,
+        ...healthDetails,
       };
 
       console.log('Saving health record:', healthRecord);
@@ -1059,7 +1397,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
     } finally {
       setIsAnalyzingHealth(false);
     }
-  }, [saveHealthRecordMutation.mutateAsync]);
+  }, [saveHealthRecordMutation.mutateAsync, identificationsQuery.data]);
 
   // Add plant to garden
   const addToGarden = useCallback(async (identification: PlantIdentification, location: string = '', notes: string = '') => {

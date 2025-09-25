@@ -239,50 +239,94 @@ Guidelines:
     });
   }
 
-  async analyzeHealth(imageBase64: string): Promise<string> {
-    const prompt = `You are an expert plant pathologist and diagnostician with decades of experience in plant health assessment. Analyze this plant image for health conditions, diseases, pests, and overall wellness.
+  async analyzeHealth({
+    imageBase64,
+    plantName,
+    scientificName,
+    model = GEMINI_MODELS.FLASH_IMAGE_PREVIEW,
+    maxTokens = 2200,
+  }: {
+    imageBase64: string;
+    plantName?: string;
+    scientificName?: string;
+    model?: string;
+    maxTokens?: number;
+  }): Promise<string> {
+    const contextLines: string[] = [];
 
-Provide a comprehensive health analysis in valid JSON format:
+    if (typeof plantName === 'string' && plantName.trim().length > 0) {
+      contextLines.push(`Likely common name: ${plantName.trim()}`);
+    }
+
+    if (typeof scientificName === 'string' && scientificName.trim().length > 0) {
+      contextLines.push(`Likely scientific name: ${scientificName.trim()}`);
+    }
+
+    const contextBlock =
+      contextLines.length > 0
+        ? `Known context:
+${contextLines.map(line => '- ' + line).join('
+')}
+
+`
+        : '';
+
+    const prompt = `${contextBlock}You are an expert plant pathologist and diagnostician with decades of experience evaluating ornamental and crop species. Analyze the provided plant photo and respond with a single JSON object that strictly matches this schema:
 
 {
-  "overallHealth": "excellent|good|fair|poor",
+  "plantName": "Common name if identifiable",
+  "scientificName": "Genus species if identifiable",
+  "healthStatus": "healthy|diseased|pest|nutrient_deficiency|overwatered|underwatered",
+  "severity": "low|medium|high",
+  "issues": ["Concise list of the most critical issues"],
+  "recommendations": ["High-level care priorities in plain language"],
   "diagnosis": {
-    "primaryCondition": "Main health condition or disease name with specific details",
-    "severity": "mild|moderate|severe",
-    "confidence": 0.85,
+    "primaryCondition": "Primary condition with short justification",
+    "secondaryConditions": ["Notable secondary findings"],
+    "affectedParts": ["Anatomical areas impacted"],
+    "progressionStage": "early|moderate|advanced",
     "prognosis": "excellent|good|fair|poor"
   },
   "symptoms": {
-    "visible": ["List of visible symptoms observed"],
-    "environmental": ["Environmental stress indicators"]
+    "visual": ["Visible symptoms from the image"],
+    "physical": ["Likely tactile or structural symptoms"],
+    "environmental": ["Environmental or cultural stress signals"]
   },
   "treatment": {
-    "immediate": ["Urgent actions needed"],
-    "ongoing": ["Long-term care adjustments"],
-    "preventive": ["Prevention measures"]
+    "immediate": ["Actions to take right away"],
+    "shortTerm": ["Care adjustments for the next 2-4 weeks"],
+    "longTerm": ["Long-term cultural improvements"],
+    "preventive": ["Preventive habits or monitoring"]
+  },
+  "causes": {
+    "primary": "Probable root cause",
+    "contributing": ["Secondary contributing factors"],
+    "environmental": ["Environmental influences"]
   },
   "monitoring": {
-    "checkFrequency": "How often to monitor (e.g., 'Daily for 1 week, then weekly')",
-    "keyIndicators": ["What to watch for during recovery"]
+    "checkFrequency": "Suggested monitoring cadence",
+    "keyIndicators": ["What to watch while recovering"],
+    "recoveryTimeframe": "Expected timeframe to see improvement"
   },
-  "recommendations": {
-    "environmental": ["Light, humidity, temperature adjustments"],
-    "care": ["Watering, fertilizing, pruning changes"],
-    "products": ["Specific treatments or products if needed"]
-  }
+  "riskFactors": ["Known risks that can worsen the issue"]
 }
 
-Be thorough and provide actionable advice. If the plant appears healthy, still provide preventive care recommendations.`;
+Guidelines:
+- Populate every field with evidence-based, botanically accurate information derived from the image.
+- Prefer empty strings or empty arrays when information is unknowable; never use placeholders like "Unknown" or "N/A".
+- Tailor treatment and recommendations to the identified condition, including actionable specifics (products, concentrations, scheduling) when appropriate.
+- Ensure terminology is accessible to home gardeners while remaining precise.
+- Respond with JSON only (no Markdown fences or commentary).`;
 
     const result = await this.postToBackend<BackendAIResponse>('/api/health/report', {
       imageBase64,
       prompt,
-      model: GEMINI_MODELS.FLASH_IMAGE_PREVIEW,
+      model,
+      maxTokens,
     });
 
     return this.extractContent(result);
   }
-}
 
 export const openRouterService = new OpenRouterService();
 export default openRouterService;
