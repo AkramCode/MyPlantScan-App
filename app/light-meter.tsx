@@ -400,7 +400,7 @@ export default function LightMeterScreen() {
                 </View>
                 {currentReading.tips.map((tip, index) => (
                   <Text key={`tip-${index}-${tip.slice(0, 10)}`} style={styles.tipText}>
-                    • {tip}
+                    - {tip}
                   </Text>
                 ))}
               </View>
@@ -849,3 +849,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+
+
+

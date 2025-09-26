@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Alert, AppState, AppStateStatus } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions, CameraMountError } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, Stack, useLocalSearchParams } from 'expo-router';
 import { Camera, Image as ImageIcon, RotateCcw, X, Check } from 'lucide-react-native';
@@ -29,9 +29,9 @@ export default function CameraScreen() {
   }, [isIdentifying, isAnalyzingHealth, isHealthMode]);
   const insets = useSafeAreaInsets();
   const mountedRef = useRef<boolean>(true);
-  const cleanupTimeoutRef = useRef<number | null>(null);
-  const activationTimeoutRef = useRef<number | null>(null);
-  const initTimeoutRef = useRef<number | null>(null);
+  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   const cleanupCamera = useCallback(() => {
@@ -333,33 +333,41 @@ export default function CameraScreen() {
         <View style={styles.container}>
           <View style={styles.previewContainer}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
-            <TouchableOpacity style={[styles.previewCloseButton, { top: insets.top + 16 }]} onPress={closeCamera}>
+            <TouchableOpacity
+              style={[styles.previewCloseButton, { top: insets.top + 16 }]}
+              onPress={closeCamera}
+            >
               <X size={24} color="#FFFFFF" />
             </TouchableOpacity>
-            
+
             <View style={styles.previewActions}>
               <TouchableOpacity style={styles.retakeButton} onPress={retakePhoto}>
                 <X size={24} color="#FFFFFF" />
                 <Text style={styles.retakeButtonText}>Retake</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.identifyButton, isProcessing && styles.identifyButtonDisabled]} 
+
+              <TouchableOpacity
+                style={[styles.identifyButton, isProcessing && styles.identifyButtonDisabled]}
                 onPress={processImage}
                 disabled={isProcessing}
               >
                 <Check size={24} color="#FFFFFF" />
                 <Text style={styles.identifyButtonText}>
-                  {isProcessing ? (isHealthMode ? 'Analyzing...' : 'Identifying...') : (isHealthMode ? 'Analyze Health' : 'Identify Plant')}
+                  {isProcessing
+                    ? isHealthMode
+                      ? 'Analyzing...'
+                      : 'Identifying...'
+                    : isHealthMode
+                    ? 'Analyze Health'
+                    : 'Identify Plant'}
                 </Text>
               </TouchableOpacity>
             </View>
-            
-            {/* Scanning overlay when processing */}
+
             {isProcessing && (
-              <ScanningOverlay 
-                isVisible={isProcessing} 
-                message={isHealthMode ? "🔬 Analyzing plant health..." : "🌿 Analyzing plant features..."}
+              <ScanningOverlay
+                isVisible={isProcessing}
+                message={isHealthMode ? 'Analyzing plant health...' : 'Analyzing plant features...'}
               />
             )}
           </View>
@@ -385,13 +393,16 @@ export default function CameraScreen() {
                   setIsInitializing(false);
                 }
               }}
-              onMountError={(error) => {
-                console.error('Camera mount error:', error);
+              onMountError={(event: CameraMountError) => {
+                console.error('Camera mount error:', event);
                 if (mountedRef.current) {
                   cleanupCamera();
+                  const errorMessage = event?.message?.trim()
+                    ? 'Failed to initialize camera: ' + event.message.trim()
+                    : 'Failed to initialize camera. Please try again.';
                   Alert.alert(
-                    'Camera Error', 
-                    'Failed to initialize camera. Please try again.',
+                    'Camera Error',
+                    errorMessage,
                     [
                       {
                         text: 'OK',
@@ -401,9 +412,9 @@ export default function CameraScreen() {
                             setIsInitializing(true);
                             setIsCameraActive(true);
                           }
-                        }
-                      }
-                    ]
+                        },
+                      },
+                    ],
                   );
                 }
               }}
@@ -445,9 +456,9 @@ export default function CameraScreen() {
                 
                 <View style={styles.tips}>
                   <Text style={styles.tipsTitle}>Tips for better results</Text>
-                  <Text style={styles.tip}>{isHealthMode ? '• Focus on affected areas • Include close-ups of symptoms • Ensure good lighting' : '• Ensure good lighting • Focus on leaves and flowers • Keep the plant centered'}</Text>
-                </View>
+                  <Text style={styles.tip}>{isHealthMode ? 'Focus on affected areas; include close-ups of symptoms; ensure even lighting' : 'Ensure good lighting; focus on leaves and flowers; keep the plant centered'}</Text>
               </View>
+            </View>
             </View>
           </>
         ) : (
@@ -743,3 +754,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 });
+
+
+
+
+

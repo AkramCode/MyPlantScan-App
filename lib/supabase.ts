@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = 'https://myplantscan-backend.vercel.app';
+const DEFAULT_BACKEND_URL = 'https://myplantscan.com';
 
 const getBackendBaseUrl = () => {
   const configured = process.env.EXPO_PUBLIC_BACKEND_URL;

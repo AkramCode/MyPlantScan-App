@@ -1,24 +1,23 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-} from 'react-native';
-import {
   ArrowLeft,
+  Calculator,
   Droplets,
+  Flower2,
+  Info,
+  Leaf,
+  LeafyGreen,
+  Save,
+  Sprout,
+  Sun,
   Thermometer,
+  TreePine,
+  Trees,
   Wind,
   Calendar,
-  Info,
-  Save,
-  Calculator,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 
 type PlantType = 'succulent' | 'tropical' | 'flowering' | 'foliage' | 'herb' | 'fern';
@@ -26,6 +25,7 @@ type PotSize = 'small' | 'medium' | 'large' | 'xlarge';
 type Season = 'spring' | 'summer' | 'fall' | 'winter';
 type SoilType = 'well-draining' | 'moisture-retaining' | 'sandy' | 'clay';
 type Environment = 'indoor' | 'outdoor' | 'greenhouse';
+type SelectorIcon = React.ComponentType<{ size?: number; color?: string }>;
 
 interface WateringResult {
   frequency: number;
@@ -47,13 +47,13 @@ export default function WaterCalculatorScreen() {
   const [humidity, setHumidity] = useState<string>('50');
   const [result, setResult] = useState<WateringResult | null>(null);
 
-  const plantTypes = [
-    { key: 'succulent', label: 'Succulent/Cactus', icon: 'ðŸŒµ' },
-    { key: 'tropical', label: 'Tropical Plants', icon: 'ðŸŒ´' },
-    { key: 'flowering', label: 'Flowering Plants', icon: 'ðŸŒ¸' },
-    { key: 'foliage', label: 'Foliage Plants', icon: 'ðŸŒ¿' },
-    { key: 'herb', label: 'Herbs', icon: 'ðŸŒ±' },
-    { key: 'fern', label: 'Ferns', icon: 'ðŸŒ¿' },
+  const plantTypes: Array<{ key: PlantType; label: string; icon: SelectorIcon }> = [
+    { key: 'succulent', label: 'Succulent/Cactus', icon: Sprout },
+    { key: 'tropical', label: 'Tropical Plants', icon: Sun },
+    { key: 'flowering', label: 'Flowering Plants', icon: Flower2 },
+    { key: 'foliage', label: 'Foliage Plants', icon: Leaf },
+    { key: 'herb', label: 'Herbs', icon: LeafyGreen },
+    { key: 'fern', label: 'Ferns', icon: Trees },
   ];
 
   const potSizes = [
@@ -352,33 +352,45 @@ export default function WaterCalculatorScreen() {
 
   const renderSelector = <T extends string>(
     title: string,
-    options: { key: T; label: string; icon?: string }[],
+    options: { key: T; label: string; icon?: SelectorIcon }[],
     selected: T,
     onSelect: (value: T) => void
   ) => (
     <View style={styles.selectorContainer}>
       <Text style={styles.selectorTitle}>{title}</Text>
       <View style={styles.optionsGrid}>
-        {options.map((option) => (
-          <TouchableOpacity
-            key={option.key}
-            style={[
-              styles.optionButton,
-              selected === option.key && styles.selectedOption,
-            ]}
-            onPress={() => onSelect(option.key)}
-          >
-            {option.icon && <Text style={styles.optionIcon}>{option.icon}</Text>}
-            <Text
+        {options.map((option) => {
+          const IconComponent = option.icon;
+          const isSelected = selected === option.key;
+
+          return (
+            <TouchableOpacity
+              key={option.key}
               style={[
-                styles.optionText,
-                selected === option.key && styles.selectedOptionText,
+                styles.optionButton,
+                isSelected && styles.selectedOption,
               ]}
+              onPress={() => onSelect(option.key)}
             >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              {IconComponent && (
+                <View style={styles.optionIcon}>
+                  <IconComponent
+                    size={20}
+                    color={isSelected ? '#22C55E' : '#6B7280'}
+                  />
+                </View>
+              )}
+              <Text
+                style={[
+                  styles.optionText,
+                  isSelected && styles.selectedOptionText,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -484,8 +496,8 @@ export default function WaterCalculatorScreen() {
                     <Text style={[styles.tipsTitle, styles.insightsTitle]}>Why this schedule works</Text>
                   </View>
                   {result.rationale.map((reason, index) => (
-                    <Text key={`reason-${index}`} style={styles.insightText}>
-                      • {reason}
+                    <Text key={'reason-' + index} style={styles.insightText}>
+                      - {reason}
                     </Text>
                   ))}
                 </View>
@@ -498,8 +510,8 @@ export default function WaterCalculatorScreen() {
                   <Text style={styles.tipsTitle}>Care Tips</Text>
                 </View>
                 {result.tips.map((tip, index) => (
-                  <Text key={`tip-${index}-${tip.slice(0, 10)}`} style={styles.tipText}>
-                    \u2022 {tip}
+                  <Text key={'tip-' + index + '-' + tip.slice(0, 10)} style={styles.tipText}>
+                    - {tip}
                   </Text>
                 ))}
               </View>
@@ -590,8 +602,9 @@ const styles = StyleSheet.create({
     borderColor: '#22C55E',
   },
   optionIcon: {
-    fontSize: 16,
     marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionText: {
     fontSize: 14,
@@ -757,3 +770,26 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

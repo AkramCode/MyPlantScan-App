@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { router } from 'expo-router';
 import { Camera, Leaf, BookOpen } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
+import { PlantIdentification } from '@/types/plant';
 import PlantCard from '@/components/PlantCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,16 +11,16 @@ export default function HomeScreen() {
   const { identifications, userPlants, isLoading } = usePlantStore();
   const insets = useSafeAreaInsets();
 
-  const recentIdentifications = identifications.slice(0, 10);
+  const recentIdentifications: PlantIdentification[] = identifications.slice(0, 10);
   const stats = {
     totalIdentifications: identifications.length,
     plantsInGarden: userPlants.length,
-    thisWeek: identifications.filter(id => 
+    thisWeek: identifications.filter((id: PlantIdentification) => 
       Date.now() - id.timestamp < 7 * 24 * 60 * 60 * 1000
     ).length,
   };
 
-  const handlePlantPress = (identification: any) => {
+  const handlePlantPress = (identification: PlantIdentification) => {
     router.push(`/plant-details?id=${identification.id}&source=home`);
   };
 

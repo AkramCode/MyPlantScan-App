@@ -1,4 +1,4 @@
-﻿# MyPlantScan
+# MyPlantScan
 
 MyPlantScan is a cross-platform mobile experience built with Expo Router and React Native. The app helps plant lovers identify species, analyse health, and manage a personal garden. The frontend talks to a Vercel-hosted backend that proxies requests to OpenRouter (for AI) and Supabase (for account data).
 
@@ -50,7 +50,7 @@ npm run start:web
 Expo Go or custom development builds can be used to preview on devices. For simulators, ensure Xcode (iOS) or Android Studio is installed.
 
 ## Backend Integration
-- All OpenRouter requests are routed through `https://myplantscan-backend.vercel.app` (configurable via `EXPO_PUBLIC_BACKEND_URL`).
+- All OpenRouter requests are routed through `https://myplantscan.com` (configurable via `EXPO_PUBLIC_BACKEND_URL`).
 - Supabase authentication and profile endpoints are also proxied via the backend so that sensitive keys remain on the server.
 - When running the backend locally, update `EXPO_PUBLIC_BACKEND_URL` accordingly.
 

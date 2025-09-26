@@ -174,14 +174,14 @@ export default function MoreScreen() {
 
   const handlePrivacyPolicy = async () => {
     try {
-      const privacyUrl = 'https://myplantscan.com/privacy';
+      const privacyUrl = 'https://www.myplantscan.com/privacy';
       const canOpen = await Linking.canOpenURL(privacyUrl);
       if (canOpen) {
         await Linking.openURL(privacyUrl);
       } else {
         Alert.alert(
           'Privacy Policy',
-          'We respect your privacy. Your plant photos are processed securely and not stored on our servers. All data is kept locally on your device unless you choose to share it.\n\nFor our complete privacy policy, visit: myplantscan.com/privacy'
+          'We respect your privacy. Your plant photos are processed securely and not stored on our servers. All data is kept locally on your device unless you choose to share it.\n\nFor our complete privacy policy, visit: www.myplantscan.com/privacy'
         );
       }
     } catch (error) {
@@ -197,14 +197,14 @@ export default function MoreScreen() {
 
   const handleTermsOfService = async () => {
     try {
-      const termsUrl = 'https://myplantscan.com/terms';
+      const termsUrl = 'https://www.myplantscan.com/terms';
       const canOpen = await Linking.canOpenURL(termsUrl);
       if (canOpen) {
         await Linking.openURL(termsUrl);
       } else {
         Alert.alert(
           'Terms of Service',
-          'By using MyPlantScan, you agree to our terms of service. The app is provided for educational and informational purposes. Always consult with professionals for plant care and safety advice.\n\nFor complete terms, visit: myplantscan.com/terms'
+          'By using MyPlantScan, you agree to our terms of service. The app is provided for educational and informational purposes. Always consult with professionals for plant care and safety advice.\n\nFor complete terms, visit: www.myplantscan.com/terms'
         );
       }
     } catch (error) {

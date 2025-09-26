@@ -86,11 +86,11 @@ export default function HealthCheckModal({
 
               {/* Tips */}
               <View style={styles.tips}>
-                <Text style={styles.tipsTitle}>💡 Tips for better analysis</Text>
+                <Text style={styles.tipsTitle}>Tips for better analysis</Text>
                 <View style={styles.tipsList}>
-                  <Text style={styles.tip}>• Focus on affected areas (leaves, stems, flowers)</Text>
-                  <Text style={styles.tip}>• Ensure good lighting for clear details</Text>
-                  <Text style={styles.tip}>• Include multiple angles if possible</Text>
+                  <Text style={styles.tip}>- Focus on affected areas (leaves, stems, flowers)</Text>
+                  <Text style={styles.tip}>- Ensure good lighting for clear details</Text>
+                  <Text style={styles.tip}>- Include multiple angles if possible</Text>
                 </View>
               </View>
             </View>
@@ -154,11 +154,11 @@ export default function HealthCheckModal({
 
           {/* Tips */}
           <View style={styles.tips}>
-            <Text style={styles.tipsTitle}>💡 Tips for better analysis</Text>
+            <Text style={styles.tipsTitle}>Tips for better analysis</Text>
             <View style={styles.tipsList}>
-              <Text style={styles.tip}>• Focus on affected areas (leaves, stems, flowers)</Text>
-              <Text style={styles.tip}>• Ensure good lighting for clear details</Text>
-              <Text style={styles.tip}>• Include multiple angles if possible</Text>
+              <Text style={styles.tip}>- Focus on affected areas (leaves, stems, flowers)</Text>
+              <Text style={styles.tip}>- Ensure good lighting for clear details</Text>
+              <Text style={styles.tip}>- Include multiple angles if possible</Text>
             </View>
           </View>
         </View>
@@ -280,3 +280,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
+
+
+
+
+
+

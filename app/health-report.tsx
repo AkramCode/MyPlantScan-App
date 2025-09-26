@@ -200,7 +200,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.diagnosisLabel}>Secondary Conditions</Text>
                   {healthRecord.diagnosis.secondaryConditions.map((condition, index) => (
                     <Text key={index} style={styles.diagnosisValue}>
-                      {'•'} {condition}
+                      {'-'} {condition}
                     </Text>
                   ))}
                 </View>
@@ -235,7 +235,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.symptomCategoryTitle}>Visual Symptoms</Text>
                   {healthRecord.symptoms.visual.map((symptom, index) => (
                     <Text key={index} style={styles.symptomItem}>
-                      {'•'} {symptom}
+                      {'-'} {symptom}
                     </Text>
                   ))}
                 </View>
@@ -245,7 +245,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.symptomCategoryTitle}>Physical Symptoms</Text>
                   {healthRecord.symptoms.physical.map((symptom, index) => (
                     <Text key={index} style={styles.symptomItem}>
-                      {'•'} {symptom}
+                      {'-'} {symptom}
                     </Text>
                   ))}
                 </View>
@@ -255,7 +255,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.symptomCategoryTitle}>Environmental Indicators</Text>
                   {healthRecord.symptoms.environmental.map((symptom, index) => (
                     <Text key={index} style={styles.symptomItem}>
-                      {'•'} {symptom}
+                      {'-'} {symptom}
                     </Text>
                   ))}
                 </View>
@@ -281,7 +281,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.causeLabel}>Contributing Factors</Text>
                   {healthRecord.causes.contributing.map((cause, index) => (
                     <Text key={index} style={styles.causeValue}>
-                      {'•'} {cause}
+                      {'-'} {cause}
                     </Text>
                   ))}
                 </View>
@@ -291,7 +291,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.causeLabel}>Environmental Factors</Text>
                   {healthRecord.causes.environmental.map((cause, index) => (
                     <Text key={index} style={styles.causeValue}>
-                      {'•'} {cause}
+                      {'-'} {cause}
                     </Text>
                   ))}
                 </View>
@@ -313,7 +313,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.treatmentCategoryTitle}>Immediate Actions</Text>
                   {healthRecord.treatment.immediate.map((action, index) => (
                     <Text key={index} style={styles.treatmentItem}>
-                      {'•'} {action}
+                      {'-'} {action}
                     </Text>
                   ))}
                 </View>
@@ -323,7 +323,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.treatmentCategoryTitle}>Short-term Treatment (1-2 weeks)</Text>
                   {healthRecord.treatment.shortTerm.map((action, index) => (
                     <Text key={index} style={styles.treatmentItem}>
-                      {'•'} {action}
+                      {'-'} {action}
                     </Text>
                   ))}
                 </View>
@@ -333,7 +333,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.treatmentCategoryTitle}>Long-term Care</Text>
                   {healthRecord.treatment.longTerm.map((action, index) => (
                     <Text key={index} style={styles.treatmentItem}>
-                      {'•'} {action}
+                      {'-'} {action}
                     </Text>
                   ))}
                 </View>
@@ -343,7 +343,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.treatmentCategoryTitle}>Prevention</Text>
                   {healthRecord.treatment.preventive.map((action, index) => (
                     <Text key={index} style={styles.treatmentItem}>
-                      {'•'} {action}
+                      {'-'} {action}
                     </Text>
                   ))}
                 </View>
@@ -368,7 +368,7 @@ export default function HealthReportScreen() {
                 <Text style={styles.monitoringLabel}>Key Indicators to Watch</Text>
                 {healthRecord.monitoring.keyIndicators.map((indicator, index) => (
                   <Text key={index} style={styles.monitoringValue}>
-                    {'•'} {indicator}
+                    {'-'} {indicator}
                   </Text>
                 ))}
               </View>
@@ -390,7 +390,7 @@ export default function HealthReportScreen() {
             <View style={styles.sectionContent}>
               {healthRecord.riskFactors.map((risk, index) => (
                 <Text key={index} style={styles.riskItem}>
-                  {'•'} {risk}
+                  {'-'} {risk}
                 </Text>
               ))}
             </View>
@@ -410,7 +410,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.summaryLabel}>Issues Identified</Text>
                   {healthRecord.issues.map((issue, index) => (
                     <Text key={index} style={styles.summaryValue}>
-                      {'•'} {issue}
+                      {'-'} {issue}
                     </Text>
                   ))}
                 </View>
@@ -420,7 +420,7 @@ export default function HealthReportScreen() {
                   <Text style={styles.summaryLabel}>General Recommendations</Text>
                   {healthRecord.recommendations.map((rec, index) => (
                     <Text key={index} style={styles.summaryValue}>
-                      {'•'} {rec}
+                      {'-'} {rec}
                     </Text>
                   ))}
                 </View>
@@ -737,3 +737,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+
+
+

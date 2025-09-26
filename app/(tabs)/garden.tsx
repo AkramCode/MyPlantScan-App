@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Modal } from 'react-native';
 import { Plus, Calendar, MapPin, Clock, BookOpen, Trash2, X } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
+import { PlantIdentification, UserPlant } from '@/types/plant';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,7 +35,7 @@ export default function GardenScreen() {
     setPlantToRemove(null);
   };
   
-  const recentIdentifications = identifications.slice(0, 10);
+  const recentIdentifications: PlantIdentification[] = identifications.slice(0, 10);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
@@ -59,7 +60,7 @@ export default function GardenScreen() {
           <View>
             <Text style={styles.title}>My Garden</Text>
             <Text style={styles.subtitle}>
-              {userPlants.length} saved • {identifications.length} identified
+              {userPlants.length} saved | {identifications.length} identified
             </Text>
           </View>
           <TouchableOpacity 
@@ -102,13 +103,13 @@ export default function GardenScreen() {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>
-                {userPlants.filter(p => p.lastWatered && Date.now() - p.lastWatered < 7 * 24 * 60 * 60 * 1000).length}
+                {userPlants.filter((p: UserPlant) => p.lastWatered && Date.now() - p.lastWatered < 7 * 24 * 60 * 60 * 1000).length}
               </Text>
               <Text style={styles.statLabel}>Watered This Week</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>
-                {new Set(userPlants.map(p => p.location)).size}
+                {new Set(userPlants.map((p: UserPlant) => p.location)).size}
               </Text>
               <Text style={styles.statLabel}>Locations</Text>
             </View>
@@ -120,7 +121,7 @@ export default function GardenScreen() {
           /* Saved Plants */
           userPlants.length > 0 ? (
             <View style={styles.plantsGrid}>
-              {userPlants.map((plant) => (
+              {userPlants.map((plant: UserPlant) => (
                 <View key={plant.id} style={styles.plantCard}>
                   <TouchableOpacity 
                     style={styles.plantCardContent}
@@ -197,8 +198,8 @@ export default function GardenScreen() {
           /* Recent Identifications */
           recentIdentifications.length > 0 ? (
             <View style={styles.plantsGrid}>
-              {recentIdentifications.map((identification) => {
-                const isInGarden = userPlants.some(p => p.identificationId === identification.id);
+              {recentIdentifications.map((identification: PlantIdentification) => {
+                const isInGarden = userPlants.some((p: UserPlant) => p.identificationId === identification.id);
                 return (
                   <TouchableOpacity 
                     key={identification.id} 
@@ -578,3 +579,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+

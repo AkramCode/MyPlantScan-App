@@ -20,15 +20,22 @@ interface OpenRouterRequest {
   [key: string]: unknown;
 }
 
+type BackendAIContentPart = {
+  type?: string;
+  text?: string;
+  image_url?: {
+    url?: string;
+  };
+};
+
 interface BackendAIResponse {
   choices?: {
     message?: {
-      content?: string;
+      content?: string | BackendAIContentPart | BackendAIContentPart[];
     };
   }[];
 }
-
-const DEFAULT_BACKEND_URL = 'https://myplantscan-backend.vercel.app';
+const DEFAULT_BACKEND_URL = 'https://myplantscan.com';
 
 const getBackendBaseUrl = () => {
   const configured = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -85,11 +92,56 @@ class OpenRouterService {
   }
 
   private extractContent(response: BackendAIResponse): string {
-    const content = response.choices?.[0]?.message?.content;
-    if (!content) {
+    const rawContent = response.choices?.[0]?.message?.content;
+
+    if (rawContent == null) {
       throw new Error('No AI response content received from backend');
     }
-    return content;
+
+    if (typeof rawContent === 'string') {
+      return rawContent;
+    }
+
+    if (Array.isArray(rawContent)) {
+      const textParts = (rawContent as Array<string | BackendAIContentPart>)
+        .map(part => {
+          if (typeof part === 'string') {
+            return part.trim();
+          }
+
+          if (Array.isArray(part)) {
+            return '';
+          }
+
+          if (part && typeof part === 'object') {
+            const maybeText = (part as { text?: unknown }).text;
+            if (typeof maybeText === 'string') {
+              const trimmedValue = maybeText.trim();
+              if (trimmedValue.length > 0) {
+                return trimmedValue;
+              }
+            }
+          }
+
+          return '';
+        })
+        .filter(segment => segment.length > 0);
+
+      if (textParts.length > 0) {
+        return textParts.join('\n');
+      }
+
+      throw new Error('AI response content did not include any textual data');
+    }
+
+    if (typeof rawContent === 'object' && rawContent && typeof (rawContent as BackendAIContentPart).text === 'string') {
+      const trimmed = ((rawContent as BackendAIContentPart).text ?? '').trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+
+    throw new Error('Unsupported AI response content format received from backend');
   }
 
   async generateText({
@@ -331,3 +383,19 @@ Guidelines:
 
 export const openRouterService = new OpenRouterService();
 export default openRouterService;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

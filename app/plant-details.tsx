@@ -26,20 +26,26 @@ import {
   Target
 } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
+import type { PlantIdentification, UserPlant } from '@/types/plant';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScanningOverlay from '@/components/ScanningOverlay';
 import HealthCheckModal from '@/components/HealthCheckModal';
 import { Colors, getConfidenceColor } from '@/constants/colors';
 
 export default function PlantDetailsScreen() {
-  const { id, source } = useLocalSearchParams();
+  const { id, source } = useLocalSearchParams<{ id?: string | string[]; source?: string }>();
   const { identifications, addToGarden, userPlants, isAnalyzingHealth, analyzeHealth } = usePlantStore();
   const [isAddingToGarden, setIsAddingToGarden] = useState(false);
   const [showHealthModal, setShowHealthModal] = useState(false);
   const insets = useSafeAreaInsets();
 
-  const identification = identifications.find(p => p.id === id);
-  const isInGarden = userPlants.some(p => p.identificationId === id);
+  const normalizedId = Array.isArray(id) ? id[0] : id;
+  const identification = normalizedId
+    ? identifications.find((plant: PlantIdentification) => plant.id === normalizedId)
+    : undefined;
+  const isInGarden = normalizedId
+    ? userPlants.some((plant: UserPlant) => plant.identificationId === normalizedId)
+    : false;
 
   const handleBackPress = () => {
     if (source === 'camera') {
@@ -229,7 +235,7 @@ export default function PlantDetailsScreen() {
             <View style={styles.infoSection}>
               <Text style={styles.sectionTitle}>Common Names</Text>
               <View style={styles.tagsContainer}>
-                {(identification.commonNames || []).map((name) => (
+                {(identification.commonNames || []).map((name: string) => (
                   <View key={name} style={styles.tag}>
                     <Text style={styles.tagText}>{name}</Text>
                   </View>
@@ -346,7 +352,7 @@ export default function PlantDetailsScreen() {
             <View style={styles.distributionContainer}>
               <Text style={styles.distributionTitle}>Native Regions</Text>
               <View style={styles.tagsContainer}>
-                {(identification.distribution?.nativeRegions || []).map((region) => (
+                {(identification.distribution?.nativeRegions || []).map((region: string) => (
                   <View key={region} style={styles.regionTag}>
                     <Text style={styles.regionTagText}>{region}</Text>
                   </View>
@@ -366,8 +372,8 @@ export default function PlantDetailsScreen() {
                     <Text style={styles.useCategoryTitle}>Medicinal</Text>
                   </View>
                   <View style={styles.usesList}>
-                    {(identification.uses?.medicinal || []).map((use) => (
-                      <Text key={`medicinal-${use}`} style={styles.useItem}>• {use}</Text>
+                    {(identification.uses?.medicinal || []).map((use: string) => (
+                      <Text key={`medicinal-${use}`} style={styles.useItem}>- {use}</Text>
                     ))}
                   </View>
                 </View>
@@ -379,8 +385,8 @@ export default function PlantDetailsScreen() {
                     <Text style={styles.useCategoryTitle}>Culinary</Text>
                   </View>
                   <View style={styles.usesList}>
-                    {(identification.uses?.culinary || []).map((use) => (
-                      <Text key={`culinary-${use}`} style={styles.useItem}>• {use}</Text>
+                    {(identification.uses?.culinary || []).map((use: string) => (
+                      <Text key={`culinary-${use}`} style={styles.useItem}>- {use}</Text>
                     ))}
                   </View>
                 </View>
@@ -392,8 +398,8 @@ export default function PlantDetailsScreen() {
                     <Text style={styles.useCategoryTitle}>Ornamental</Text>
                   </View>
                   <View style={styles.usesList}>
-                    {(identification.uses?.ornamental || []).map((use) => (
-                      <Text key={`ornamental-${use}`} style={styles.useItem}>• {use}</Text>
+                    {(identification.uses?.ornamental || []).map((use: string) => (
+                      <Text key={`ornamental-${use}`} style={styles.useItem}>- {use}</Text>
                     ))}
                   </View>
                 </View>
@@ -436,7 +442,7 @@ export default function PlantDetailsScreen() {
               </View>
               <Text style={styles.propagationMethodsTitle}>Methods:</Text>
               <View style={styles.tagsContainer}>
-                {(identification.propagation?.methods || []).map((method) => (
+                {(identification.propagation?.methods || []).map((method: string) => (
                   <View key={method} style={styles.methodTag}>
                     <Text style={styles.methodTagText}>{method}</Text>
                   </View>
@@ -450,7 +456,7 @@ export default function PlantDetailsScreen() {
             <View style={styles.infoSection}>
               <Text style={styles.sectionTitle}>Companion Plants</Text>
               <View style={styles.tagsContainer}>
-                {(identification.companionPlants || []).map((plant) => (
+                {(identification.companionPlants || []).map((plant: string) => (
                   <View key={plant} style={styles.companionTag}>
                     <Text style={styles.companionTagText}>{plant}</Text>
                   </View>
@@ -469,7 +475,7 @@ export default function PlantDetailsScreen() {
                   <Text style={styles.issueCategoryTitle}>Common Pests</Text>
                 </View>
                 <View style={styles.tagsContainer}>
-                  {(identification.pests || []).map((pest) => (
+                  {(identification.pests || []).map((pest: string) => (
                     <View key={pest} style={styles.pestTag}>
                       <Text style={styles.pestTagText}>{pest}</Text>
                     </View>
@@ -482,7 +488,7 @@ export default function PlantDetailsScreen() {
                   <Text style={styles.issueCategoryTitle}>Common Diseases</Text>
                 </View>
                 <View style={styles.tagsContainer}>
-                  {(identification.diseases || []).map((disease) => (
+                  {(identification.diseases || []).map((disease: string) => (
                     <View key={disease} style={styles.diseaseTag}>
                       <Text style={styles.diseaseTagText}>{disease}</Text>
                     </View>
@@ -519,7 +525,7 @@ export default function PlantDetailsScreen() {
             <View style={styles.infoSection}>
               <Text style={styles.sectionTitle}>Interesting Facts</Text>
               <View style={styles.factsContainer}>
-                {(identification.interestingFacts || []).map((fact) => (
+                {(identification.interestingFacts || []).map((fact: string) => (
                   <View key={`fact-${fact.substring(0, 20)}`} style={styles.factItem}>
                     <Zap size={14} color="#F59E0B" />
                     <Text style={styles.factText}>{fact}</Text>
@@ -555,7 +561,7 @@ export default function PlantDetailsScreen() {
       {/* Scanning overlay when analyzing health */}
       <ScanningOverlay 
         isVisible={isAnalyzingHealth} 
-        message="🔬 Analyzing plant health..."
+        message="Analyzing plant health..."
       />
       
       <HealthCheckModal
@@ -1112,3 +1118,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+
+

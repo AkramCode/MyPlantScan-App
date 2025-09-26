@@ -241,7 +241,7 @@ export default function HealthScreen() {
       {/* Scanning overlay when analyzing health */}
       <ScanningOverlay 
         isVisible={isAnalyzingHealth} 
-        message="🔬 Analyzing plant health..."
+        message="Analyzing plant health..."
       />
     </View>
   );

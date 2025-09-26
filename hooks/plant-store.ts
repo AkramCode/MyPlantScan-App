@@ -1442,9 +1442,9 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
 
   return useMemo(() => ({
     // Data
-    identifications: identificationsQuery.data || [],
-    healthRecords: healthRecordsQuery.data || [],
-    userPlants: userPlantsQuery.data || [],
+    identifications: (identificationsQuery.data ?? ([] as PlantIdentification[])),
+    healthRecords: (healthRecordsQuery.data ?? ([] as PlantHealth[])),
+    userPlants: (userPlantsQuery.data ?? ([] as UserPlant[])),
     
     // Loading states
     isLoading: identificationsQuery.isLoading || healthRecordsQuery.isLoading || userPlantsQuery.isLoading,
