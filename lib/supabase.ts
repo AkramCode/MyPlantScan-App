@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = 'https://myplantscan.com';
+﻿const DEFAULT_BACKEND_URL = 'https://www.myplantscan.com';
 
 const getBackendBaseUrl = () => {
   const configured = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -160,3 +160,19 @@ export async function upsertProfile(accessToken: string, profile: ProfileUpdate)
     accessToken,
   });
 }
+
+export async function confirmEmail(token: string) {
+  return request<{ session: AuthSession; user: AuthUser }>('/auth/confirm', {
+    method: 'POST',
+    body: { token },
+  });
+}
+
+export async function updatePassword(accessToken: string, password: string) {
+  return request<{ message: string }>('/auth/update-password', {
+    method: 'PUT',
+    body: { password },
+    accessToken,
+  });
+}
+

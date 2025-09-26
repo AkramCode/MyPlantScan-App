@@ -10,6 +10,8 @@ import {
   getUser as backendGetUser,
   getProfile as backendGetProfile,
   upsertProfile as backendUpsertProfile,
+  confirmEmail as backendConfirmEmail,
+  updatePassword as backendUpdatePassword,
   type AuthSession,
   type AuthUser,
   type Profile,
@@ -326,6 +328,55 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, [session, user, profile]);
 
+  const confirmEmail = useCallback(async (token: string): Promise<AuthResult> => {
+    if (!token?.trim()) {
+      return { error: { message: 'Invalid confirmation token' } };
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await backendConfirmEmail(token);
+      if (error) {
+        return { error: { message: error.message } };
+      }
+
+      if (data && data.session && data.user) {
+        const nextSession = normaliseSession(data.session);
+        setSession(nextSession);
+        setUser(data.user);
+        await persistSession(nextSession);
+        await loadProfile(nextSession.access_token, data.user.id);
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('AuthProvider: Email confirmation exception:', error);
+      return { error: { message: 'Unable to confirm email. Please try again.' } };
+    } finally {
+      setLoading(false);
+    }
+  }, [loadProfile, persistSession]);
+
+  const updatePassword = useCallback(async (password: string): Promise<AuthResult> => {
+    if (!session) {
+      return { error: { message: 'No user logged in' } };
+    }
+    if (!password || password.length < 6 || password.length > 128) {
+      return { error: { message: 'Password must be between 6 and 128 characters' } };
+    }
+
+    try {
+      const { error } = await backendUpdatePassword(session.access_token, password);
+      if (error) {
+        return { error: { message: error.message } };
+      }
+      return { error: null };
+    } catch (error) {
+      console.error('AuthProvider: Update password exception:', error);
+      return { error: { message: 'Unable to update password. Please try again.' } };
+    }
+  }, [session]);
+
   return useMemo(() => ({
     session,
     user,
@@ -336,5 +387,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     signOut,
     resetPassword,
     updateProfile,
-  }), [session, user, profile, loading, signIn, signUp, signOut, resetPassword, updateProfile]);
+    confirmEmail,
+    updatePassword,
+  }), [session, user, profile, loading, signIn, signUp, signOut, resetPassword, updateProfile, confirmEmail, updatePassword]);
 });
