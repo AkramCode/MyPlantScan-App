@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, Linking, Share } from 'react-native';
-import { Info, Star, Share2, HelpCircle, Trash2, ChevronRight, Settings, Shield, FileText, Droplets, Sun, User, LogIn } from 'lucide-react-native';
+import { Info, Star, Share2, HelpCircle, Trash2, ChevronRight, Settings, Shield, FileText, Droplets, Sun, User, LogIn, LogOut } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MoreScreen() {
   const { identifications, userPlants, healthRecords } = usePlantStore();
-  const { user, profile } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAuthScreen, setShowAuthScreen] = useState(false);
@@ -223,6 +223,29 @@ export default function MoreScreen() {
       'Settings',
       'App settings and preferences will be available in future updates. Currently, all core features are accessible from the main tabs.',
       [{ text: 'OK' }]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out? Your data will remain on this device.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+              Alert.alert('Signed Out', 'You have been successfully signed out.');
+            } catch (error) {
+              console.error('Error signing out:', error);
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            }
+          },
+        },
+      ]
     );
   };
 
@@ -520,6 +543,32 @@ export default function MoreScreen() {
           })}
         </View>
 
+        {/* Account Management - Only show for authenticated users */}
+        {user && (
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.dangerousMenuItem]}
+              onPress={handleLogout}
+            >
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.iconContainer, styles.dangerousIconContainer]}>
+                  <LogOut size={20} color="#EF4444" />
+                </View>
+                <View style={styles.menuItemText}>
+                  <Text style={[styles.menuItemTitle, styles.dangerousText]}>
+                    Sign Out
+                  </Text>
+                  <Text style={styles.menuItemSubtitle}>
+                    Sign out of your account
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={16} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={styles.appName}>MyPlantScan</Text>
@@ -535,17 +584,16 @@ export default function MoreScreen() {
       
       {/* Auth Screen Modal */}
       {showAuthScreen && (
-        <View style={styles.authModal}>
-          <AuthScreen />
-          <TouchableOpacity
-            style={styles.authCloseButton}
-            onPress={() => setShowAuthScreen(false)}
-            testID="close-auth-screen"
-          >
-            <Text style={styles.authCloseText}>X</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+          <View style={styles.authModal}>
+            <AuthScreen onAuthSuccess={() => setShowAuthScreen(false)} />
+            <TouchableOpacity
+              style={styles.authCloseButton}
+              onPress={() => setShowAuthScreen(false)}
+            >
+              <Text style={styles.authCloseText}>×</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       
       {/* Profile Modal */}
       <ProfileModal

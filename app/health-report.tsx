@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Share as RNShare } from 'react-native';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { usePlantStore } from '@/hooks/plant-store';
@@ -18,6 +18,7 @@ import {
   ArrowLeft
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors, getHealthStatusColor, getSeverityColor } from '@/constants/colors';
 
 export default function HealthReportScreen() {
   const { id, plantId, source } = useLocalSearchParams<{ id?: string; plantId?: string; source?: string }>();
@@ -47,7 +48,7 @@ export default function HealthReportScreen() {
       <View style={styles.container}>
         <Stack.Screen options={{ title: 'Health Report', headerShown: false }} />
         <View style={styles.errorContainer}>
-          <AlertTriangle size={64} color="#EF4444" />
+          <AlertTriangle size={64} color={Colors.error} />
           <Text style={styles.errorTitle}>Report Not Found</Text>
           <Text style={styles.errorDescription}>The health report you&apos;re looking for doesn&apos;t exist.</Text>
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
@@ -58,34 +59,13 @@ export default function HealthReportScreen() {
     );
   }
 
-  const getHealthStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy': return '#22C55E';
-      case 'diseased': return '#EF4444';
-      case 'pest': return '#F59E0B';
-      case 'nutrient_deficiency': return '#F59E0B';
-      case 'overwatered': return '#3B82F6';
-      case 'underwatered': return '#F59E0B';
-      default: return '#6B7280';
-    }
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'low': return '#22C55E';
-      case 'medium': return '#F59E0B';
-      case 'high': return '#EF4444';
-      default: return '#6B7280';
-    }
-  };
-
   const getPrognosisColor = (prognosis: string) => {
     switch (prognosis) {
-      case 'excellent': return '#22C55E';
-      case 'good': return '#84CC16';
-      case 'fair': return '#F59E0B';
-      case 'poor': return '#EF4444';
-      default: return '#6B7280';
+      case 'excellent': return Colors.success;
+      case 'good': return Colors.primaryDark;
+      case 'fair': return Colors.warning;
+      case 'poor': return Colors.error;
+      default: return Colors.textSecondary;
     }
   };
 
@@ -112,6 +92,175 @@ export default function HealthReportScreen() {
       console.error('Error sharing report:', error);
     }
   };
+
+  const derivedInsights = useMemo(() => {
+    if (!healthRecord) {
+      return {
+        headline: '',
+        summary: '',
+        statusPills: [],
+        sections: [],
+      };
+    }
+
+    const severityHeadlineMap: Record<string, string> = {
+      high: 'Urgent care recommended',
+      medium: 'Targeted care suggested',
+      low: 'Care routine on track',
+    };
+
+    const severityDescriptorMap: Record<string, string> = {
+      high: 'AI flagged a high severity issue that needs attention right away.',
+      medium: 'Issue is moderate - address soon to keep it from escalating.',
+      low: 'Issue is mild - stay consistent with the care plan.',
+    };
+
+    const stageDescriptorMap: Record<string, string> = {
+      early: 'Problem caught early; quick action can prevent spread.',
+      moderate: 'Condition is developing; monitor responses closely.',
+      advanced: 'Condition is advanced; expect a longer recovery window.',
+    };
+
+    const prognosisDescriptorMap: Record<string, string> = {
+      excellent: 'Excellent prognosis - plant should rebound quickly.',
+      good: 'Good prognosis with consistent follow-up.',
+      fair: 'Fair prognosis - expect gradual improvement.',
+      poor: 'Poor prognosis - consider intensive intervention.',
+    };
+
+    const stageColorMap: Record<string, { text: string; background: string }> = {
+      early: { text: Colors.success, background: Colors.successLight },
+      moderate: { text: Colors.warning, background: Colors.warningLight },
+      advanced: { text: Colors.error, background: Colors.errorLight },
+    };
+
+    const severityBackgroundMap: Record<string, string> = {
+      high: Colors.errorLight,
+      medium: Colors.warningLight,
+      low: Colors.successLight,
+    };
+
+    const progressionStage = healthRecord.diagnosis?.progressionStage;
+    const severity = healthRecord.severity;
+    const prognosis = healthRecord.diagnosis?.prognosis;
+
+    const conditionName = healthRecord.diagnosis?.primaryCondition || healthRecord.issues?.[0] || 'Plant stress detected';
+    const affectedParts = healthRecord.diagnosis?.affectedParts ?? [];
+
+    const summaryParts = [
+      severityDescriptorMap[severity],
+      progressionStage ? stageDescriptorMap[progressionStage] : undefined,
+      prognosis ? prognosisDescriptorMap[prognosis] : undefined,
+      affectedParts.length ? `Focus care on ${affectedParts.join(', ')}.` : undefined,
+      healthRecord.causes?.primary ? `Likely trigger: ${healthRecord.causes.primary}.` : undefined,
+    ].filter(Boolean) as string[];
+
+    const summary = summaryParts.length > 0
+      ? summaryParts.join(' ').trim()
+      : 'AI generated this report with tailored recommendations below.';
+
+    const severityColor = severity ? getSeverityColor(severity) : Colors.textSecondary;
+
+    const statusPills: Array<{ label: string; textColor: string; background: string }> = severity
+      ? [{
+          label: `${severity.charAt(0).toUpperCase()}${severity.slice(1)} severity`,
+          textColor: severityColor,
+          background: severityBackgroundMap[severity] || Colors.gray100,
+        }]
+      : [];
+
+    if (progressionStage) {
+      const stageMeta = stageColorMap[progressionStage] || { text: Colors.textSecondary, background: Colors.gray100 };
+      const stageLabelMap: Record<string, string> = {
+        early: 'Early stage',
+        moderate: 'Moderate stage',
+        advanced: 'Advanced stage',
+      };
+      statusPills.push({
+        label: stageLabelMap[progressionStage] || 'Stage unknown',
+        textColor: stageMeta.text,
+        background: stageMeta.background,
+      });
+    }
+
+    if (prognosis) {
+      const prognosisColor = getPrognosisColor(prognosis);
+      const prognosisBackground = prognosis === 'poor'
+        ? Colors.errorLight
+        : prognosis === 'fair'
+          ? Colors.warningLight
+          : Colors.primaryLight;
+      const prognosisLabel = `${prognosis.charAt(0).toUpperCase()}${prognosis.slice(1)} prognosis`;
+      statusPills.push({
+        label: prognosisLabel,
+        textColor: prognosisColor,
+        background: prognosisBackground,
+      });
+    }
+
+    const immediateActions = [
+      ...(healthRecord.treatment?.immediate ?? []),
+      ...(healthRecord.treatment?.shortTerm ?? []),
+    ].filter(Boolean);
+
+    const uniqueImmediate = Array.from(new Set(immediateActions)).slice(0, 3);
+
+    const nextChecks: string[] = [];
+    if (healthRecord.monitoring?.checkFrequency) {
+      nextChecks.push(`Check ${healthRecord.monitoring.checkFrequency}`);
+    }
+    if (healthRecord.monitoring?.recoveryTimeframe) {
+      nextChecks.push(`Recovery window: ${healthRecord.monitoring.recoveryTimeframe}`);
+    }
+    if (healthRecord.monitoring?.keyIndicators?.length) {
+      nextChecks.push(...healthRecord.monitoring.keyIndicators.slice(0, 2));
+    }
+
+    const environmentWatch = new Set<string>();
+    (healthRecord.causes?.environmental ?? []).slice(0, 2).forEach(item => environmentWatch.add(item));
+    (healthRecord.riskFactors ?? []).slice(0, 2).forEach(item => environmentWatch.add(item));
+
+    const sections = [
+      uniqueImmediate.length > 0 && {
+        key: 'actions',
+        title: 'Immediate Priorities',
+        icon: Shield,
+        color: Colors.primary,
+        background: Colors.primaryLight,
+        items: uniqueImmediate,
+      },
+      nextChecks.length > 0 && {
+        key: 'monitoring',
+        title: 'Next Checks',
+        icon: Clock,
+        color: Colors.secondary,
+        background: Colors.infoLight,
+        items: nextChecks,
+      },
+      environmentWatch.size > 0 && {
+        key: 'environment',
+        title: 'Environment Watch',
+        icon: Thermometer,
+        color: Colors.warning,
+        background: Colors.warningLight,
+        items: Array.from(environmentWatch),
+      },
+    ].filter(Boolean) as Array<{
+      key: string;
+      title: string;
+      icon: typeof Shield;
+      color: string;
+      background: string;
+      items: string[];
+    }>;
+
+    return {
+      headline: `${severityHeadlineMap[severity] || 'AI summary'}: ${conditionName}`,
+      summary,
+      statusPills,
+      sections,
+    };
+  }, [healthRecord]);
 
   const StatusIcon = healthRecord.healthStatus === 'healthy' ? CheckCircle : AlertTriangle;
 
@@ -152,10 +301,62 @@ export default function HealthReportScreen() {
               <Text style={styles.scientificName}>{healthRecord.scientificName}</Text>
             )}
             <View style={styles.dateContainer}>
-              <Calendar size={16} color="#6B7280" />
+              <Calendar size={16} color={Colors.textSecondary} />
               <Text style={styles.dateText}>{formatDate(healthRecord.timestamp)}</Text>
             </View>
           </View>
+        </View>
+
+        {/* AI Insights */}
+        <View style={styles.insightCard}>
+          <Text style={styles.insightLabel}>AI Summary</Text>
+          <Text style={styles.insightHeadline}>{derivedInsights.headline}</Text>
+          {derivedInsights.summary ? (
+            <Text style={styles.insightBody}>{derivedInsights.summary}</Text>
+          ) : null}
+          {derivedInsights.statusPills.length > 0 && (
+            <View style={styles.statusPillsRow}>
+              {derivedInsights.statusPills.map((pill) => (
+                <View
+                  key={pill.label}
+                  style={[styles.statusPill, { backgroundColor: pill.background }]}
+                >
+                  <Text style={[styles.statusPillText, { color: pill.textColor }]}>
+                    {pill.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {derivedInsights.sections.map((section) => {
+            const IconComponent = section.icon;
+            return (
+              <View key={section.key} style={styles.insightSection}>
+                <View
+                  style={[
+                    styles.insightSectionHeader,
+                    { backgroundColor: section.background },
+                  ]}
+                >
+                  <IconComponent size={16} color={section.color} />
+                  <Text style={[styles.insightSectionTitle, { color: section.color }]}>
+                    {section.title}
+                  </Text>
+                </View>
+                <View style={styles.insightSectionList}>
+                  {section.items.map((item, index) => (
+                    <View
+                      key={`${section.key}-${index}`}
+                      style={styles.insightItem}
+                    >
+                      <View style={styles.insightBullet} />
+                      <Text style={styles.insightItemText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
         </View>
 
         {/* Quick Stats */}
@@ -175,7 +376,7 @@ export default function HealthReportScreen() {
             </Text>
           </View>
           <View style={styles.statCard}>
-            <Clock size={20} color="#6B7280" />
+            <Clock size={20} color={Colors.textSecondary} />
             <Text style={styles.statLabel}>Recovery</Text>
             <Text style={styles.statValue}>
               {healthRecord.monitoring?.recoveryTimeframe || 'Variable'}
@@ -187,7 +388,7 @@ export default function HealthReportScreen() {
         {healthRecord.diagnosis && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Eye size={20} color="#111827" />
+              <Eye size={20} color={Colors.textPrimary} />
               <Text style={styles.sectionTitle}>Diagnosis</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -212,8 +413,8 @@ export default function HealthReportScreen() {
               <View style={styles.diagnosisItem}>
                 <Text style={styles.diagnosisLabel}>Progression Stage</Text>
                 <Text style={[styles.diagnosisValue, { 
-                  color: healthRecord.diagnosis.progressionStage === 'early' ? '#22C55E' : 
-                         healthRecord.diagnosis.progressionStage === 'moderate' ? '#F59E0B' : '#EF4444'
+                  color: healthRecord.diagnosis.progressionStage === 'early' ? Colors.success :
+                         healthRecord.diagnosis.progressionStage === 'moderate' ? Colors.warning : Colors.error
                 }]}>
                   {healthRecord.diagnosis.progressionStage.toUpperCase()}
                 </Text>
@@ -226,7 +427,7 @@ export default function HealthReportScreen() {
         {healthRecord.symptoms && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <AlertTriangle size={20} color="#111827" />
+              <AlertTriangle size={20} color={Colors.textPrimary} />
               <Text style={styles.sectionTitle}>Symptoms</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -268,7 +469,7 @@ export default function HealthReportScreen() {
         {healthRecord.causes && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Thermometer size={20} color="#111827" />
+              <Thermometer size={20} color={Colors.textPrimary} />
               <Text style={styles.sectionTitle}>Causes</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -304,7 +505,7 @@ export default function HealthReportScreen() {
         {healthRecord.treatment && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Shield size={20} color="#111827" />
+              <Shield size={20} color={Colors.textPrimary} />
               <Text style={styles.sectionTitle}>Treatment Plan</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -356,7 +557,7 @@ export default function HealthReportScreen() {
         {healthRecord.monitoring && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Activity size={20} color="#111827" />
+              <Activity size={20} color={Colors.textPrimary} />
               <Text style={styles.sectionTitle}>Monitoring Guidelines</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -384,7 +585,7 @@ export default function HealthReportScreen() {
         {healthRecord.riskFactors && healthRecord.riskFactors.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <AlertTriangle size={20} color="#111827" />
+              <AlertTriangle size={20} color={Colors.textPrimary} />
               <Text style={styles.sectionTitle}>Risk Factors</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -401,7 +602,7 @@ export default function HealthReportScreen() {
         {(healthRecord.issues.length > 0 || healthRecord.recommendations.length > 0) && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <CheckCircle size={20} color="#111827" />
+              <CheckCircle size={20} color={Colors.textPrimary} />
               <Text style={styles.sectionTitle}>Summary</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -441,7 +642,7 @@ export default function HealthReportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.background,
   },
   scrollView: {
     flex: 1,
@@ -475,7 +676,7 @@ const styles = StyleSheet.create({
   plantImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.gray100,
   },
   imageOverlay: {
     position: 'absolute',
@@ -496,18 +697,102 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   reportHeader: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.gray200,
   },
   reportInfo: {
     alignItems: 'center',
   },
+  insightCard: {
+    backgroundColor: Colors.surface,
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+  },
+  insightLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textTertiary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  insightHeadline: {
+    marginTop: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    lineHeight: 26,
+  },
+  insightBody: {
+    marginTop: 8,
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  statusPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+  },
+  statusPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  insightSection: {
+    marginTop: 16,
+  },
+  insightSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 12,
+  },
+  insightSectionTitle: {
+    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  insightSectionList: {
+  },
+  insightItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  insightBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.gray300,
+    marginTop: 7,
+    marginRight: 10,
+  },
+  insightItemText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
   plantName: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: 6,
     lineHeight: 32,
@@ -515,7 +800,7 @@ const styles = StyleSheet.create({
   scientificName: {
     fontSize: 17,
     fontStyle: 'italic',
-    color: '#6B7280',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 22,
@@ -526,18 +811,18 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 15,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     marginLeft: 6,
     lineHeight: 20,
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.gray200,
   },
   statCard: {
     flex: 1,
@@ -547,12 +832,12 @@ const styles = StyleSheet.create({
   statCardMiddle: {
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderLeftColor: '#E5E7EB',
-    borderRightColor: '#E5E7EB',
+    borderLeftColor: Colors.gray200,
+    borderRightColor: Colors.gray200,
   },
   statLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     marginTop: 10,
     marginBottom: 6,
     textAlign: 'center',
@@ -560,29 +845,29 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: Colors.textPrimary,
     textAlign: 'center',
     lineHeight: 20,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.gray200,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.gray200,
   },
   sectionTitle: {
     fontSize: 19,
     fontWeight: '600',
-    color: '#111827',
+    color: Colors.textPrimary,
     marginLeft: 10,
     lineHeight: 24,
   },
@@ -595,13 +880,13 @@ const styles = StyleSheet.create({
   diagnosisLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.gray700,
     marginBottom: 6,
     lineHeight: 20,
   },
   diagnosisValue: {
     fontSize: 15,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     lineHeight: 22,
   },
   symptomCategory: {
@@ -610,13 +895,13 @@ const styles = StyleSheet.create({
   symptomCategoryTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.gray700,
     marginBottom: 10,
     lineHeight: 20,
   },
   symptomItem: {
     fontSize: 15,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     lineHeight: 22,
     marginBottom: 6,
   },
@@ -626,13 +911,13 @@ const styles = StyleSheet.create({
   causeLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.gray700,
     marginBottom: 6,
     lineHeight: 20,
   },
   causeValue: {
     fontSize: 15,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     lineHeight: 22,
     marginBottom: 4,
   },
@@ -642,13 +927,13 @@ const styles = StyleSheet.create({
   treatmentCategoryTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.gray700,
     marginBottom: 10,
     lineHeight: 20,
   },
   treatmentItem: {
     fontSize: 15,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     lineHeight: 22,
     marginBottom: 6,
   },
@@ -658,19 +943,19 @@ const styles = StyleSheet.create({
   monitoringLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.gray700,
     marginBottom: 6,
     lineHeight: 20,
   },
   monitoringValue: {
     fontSize: 15,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     lineHeight: 22,
     marginBottom: 4,
   },
   riskItem: {
     fontSize: 15,
-    color: '#EF4444',
+    color: Colors.error,
     lineHeight: 22,
     marginBottom: 6,
   },
@@ -680,13 +965,13 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.gray700,
     marginBottom: 6,
     lineHeight: 20,
   },
   summaryValue: {
     fontSize: 15,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     lineHeight: 22,
     marginBottom: 4,
   },
@@ -697,12 +982,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: Colors.textTertiary,
     textAlign: 'center',
   },
   footerSubtext: {
     fontSize: 11,
-    color: '#D1D5DB',
+    color: Colors.gray300,
     textAlign: 'center',
     marginTop: 4,
   },
@@ -715,29 +1000,26 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
+    color: Colors.textPrimary,
     marginTop: 16,
     marginBottom: 8,
   },
   errorDescription: {
     fontSize: 16,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#22C55E',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
 });
-
-
-
 

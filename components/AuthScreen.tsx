@@ -18,7 +18,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
-export default function AuthScreen() {
+interface AuthScreenProps {
+  onAuthSuccess?: () => void;
+}
+
+export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -64,6 +68,9 @@ export default function AuthScreen() {
           'Please check your email to verify your account before signing in.',
           [{ text: 'OK', onPress: () => setMode('signin') }]
         );
+      } else if (mode === 'signin') {
+        // Sign-in was successful, call the success callback
+        onAuthSuccess?.();
       }
     } catch (error) {
       console.error('Auth error:', error);
