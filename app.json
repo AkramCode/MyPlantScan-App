@@ -1,4 +1,4 @@
-﻿{
+{
     "expo":  {
                  "name":  "MyPlantScan",
                  "slug":  "myplantscan",
@@ -9,9 +9,9 @@
                  "userInterfaceStyle":  "automatic",
                  "newArchEnabled":  true,
                  "splash":  {
-                                "image":  "./assets/images/splash-icon.png",
+                                "image":  "./assets/images/icon.png",
                                 "resizeMode":  "contain",
-                                "backgroundColor":  "#ffffff"
+                                "backgroundColor":  "#F9FAFB"
                             },
                  "ios":  {
                              "supportsTablet":  true,
@@ -37,7 +37,7 @@
                  "android":  {
                                  "adaptiveIcon":  {
                                                       "foregroundImage":  "./assets/images/adaptive-icon.png",
-                                                      "backgroundColor":  "#ffffff"
+                                                      "backgroundColor":  "#F9FAFB"
                                                   },
                                  "package":  "com.myplantscan.www",
                                  "permissions":  [

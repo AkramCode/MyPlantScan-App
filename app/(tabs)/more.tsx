@@ -113,14 +113,7 @@ export default function MoreScreen() {
   };
 
   const handleHelp = () => {
-    Alert.alert(
-      'Help & Tips',
-      'For the best plant identification results:\\n\\nPhotography Tips:\\n- Take clear, well-lit photos\\n- Focus on leaves, flowers, and distinctive features\\n- Avoid blurry or dark images\\n- Include multiple angles when possible\\n\\nPlant Health Analysis:\\n- Capture the affected area clearly\\n- Show the entire plant for context\\n- Take photos in natural light\\n\\nGeneral Tips:\\n- Clean your camera lens\\n- Hold the phone steady\\n- Get close to the plant\\n- Avoid shadows on the subject',
-      [
-        { text: 'Contact Support', onPress: handleContactSupport },
-        { text: 'OK', style: 'cancel' }
-      ]
-    );
+    router.push('/help');
   };
 
   const handleContactSupport = async () => {
@@ -161,15 +154,7 @@ export default function MoreScreen() {
   };
 
   const handleAbout = () => {
-    Alert.alert(
-      'About MyPlantScan',
-      'MyPlantScan uses advanced AI technology powered by Google Gemini to identify plants and analyze their health. Our mission is to help everyone connect with nature and care for plants better.\\n\\nFeatures:\\n- AI-powered plant identification\\n- Plant health analysis\\n- Personal plant garden\\n- Care recommendations\\n- Detailed plant information\\n\\nTechnology:\\nPowered by Google Gemini 2.5 Flash\\n\\nVersion: 1.0.0\\n\\nCopyright 2024 MyPlantScan. All rights reserved.',
-      [
-        { text: 'Privacy Policy', onPress: handlePrivacyPolicy },
-        { text: 'Terms of Service', onPress: handleTermsOfService },
-        { text: 'OK', style: 'cancel' }
-      ]
-    );
+    router.push('/about');
   };
 
   const handlePrivacyPolicy = async () => {
@@ -219,11 +204,7 @@ export default function MoreScreen() {
   };
 
   const handleSettings = () => {
-    Alert.alert(
-      'Settings',
-      'App settings and preferences will be available in future updates. Currently, all core features are accessible from the main tabs.',
-      [{ text: 'OK' }]
-    );
+    router.push('/settings');
   };
 
   const handleLogout = () => {

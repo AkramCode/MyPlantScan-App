@@ -9,8 +9,7 @@ import {
   Eye, 
   Activity, 
   Thermometer,
-
-
+  Info,
   Shield,
   TrendingUp,
   Calendar,
@@ -19,11 +18,15 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, getHealthStatusColor, getSeverityColor } from '@/constants/colors';
+import { trackEvent } from '@/lib/analytics';
+import { useSettings } from '@/providers/settings-provider';
 
 export default function HealthReportScreen() {
   const { id, plantId, source } = useLocalSearchParams<{ id?: string; plantId?: string; source?: string }>();
   const { healthRecords } = usePlantStore();
   const insets = useSafeAreaInsets();
+  const { settings } = useSettings();
+  const healthInsightsEnabled = settings.healthInsights;
   
   const handleBackPress = () => {
     if (source === 'health') {
@@ -43,23 +46,7 @@ export default function HealthReportScreen() {
     record.id === id || record.plantId === plantId || record.id === plantId
   ) || healthRecords[0]; // Fallback to most recent record if no match
   
-  if (!healthRecord) {
-    return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: 'Health Report', headerShown: false }} />
-        <View style={styles.errorContainer}>
-          <AlertTriangle size={64} color={Colors.error} />
-          <Text style={styles.errorTitle}>Report Not Found</Text>
-          <Text style={styles.errorDescription}>The health report you&apos;re looking for doesn&apos;t exist.</Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  const getPrognosisColor = (prognosis: string) => {
+    const getPrognosisColor = (prognosis: string) => {
     switch (prognosis) {
       case 'excellent': return Colors.success;
       case 'good': return Colors.primaryDark;
@@ -87,6 +74,12 @@ export default function HealthReportScreen() {
       await RNShare.share({
         message: reportText,
         title: 'Plant Health Report',
+      });
+
+      trackEvent('health_report.share', {
+        reportId: healthRecord.id,
+        plantId: healthRecord.plantId,
+        healthStatus: healthRecord.healthStatus,
       });
     } catch (error) {
       console.error('Error sharing report:', error);
@@ -262,6 +255,22 @@ export default function HealthReportScreen() {
     };
   }, [healthRecord]);
 
+  if (!healthRecord) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: 'Health Report', headerShown: false }} />
+        <View style={styles.errorContainer}>
+          <AlertTriangle size={64} color={Colors.error} />
+          <Text style={styles.errorTitle}>Report Not Found</Text>
+          <Text style={styles.errorDescription}>The health report you&apos;re looking for doesn&apos;t exist.</Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   const StatusIcon = healthRecord.healthStatus === 'healthy' ? CheckCircle : AlertTriangle;
 
   return (
@@ -269,6 +278,13 @@ export default function HealthReportScreen() {
       <Stack.Screen options={{ title: 'Health Report', headerShown: false }} />
       
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+        {!healthInsightsEnabled && (
+          <View style={styles.preferenceNotice}>
+            <Info size={16} color={Colors.warning} />
+            <Text style={styles.preferenceNoticeText}>Health insights digest is off. Enable it in Settings for weekly summaries.</Text>
+          </View>
+        )}
+
         {/* Plant Image with Overlay Buttons */}
         <View style={styles.imageSection}>
           <Image source={{ uri: healthRecord.imageUri }} style={styles.plantImage} />
@@ -646,6 +662,25 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  preferenceNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.warningLight,
+    borderColor: Colors.warningBorder,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  preferenceNoticeText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 13,
+    lineHeight: 18,
+    color: Colors.textSecondary,
   },
   overlayBackButton: {
     position: 'absolute',

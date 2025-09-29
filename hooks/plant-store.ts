@@ -1563,10 +1563,10 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
             throw new Error('No JSON content found in response');
           }
 
-          jsonText = jsonText.replace(new RegExp('\\r?\\n', 'g'), ' ');
-          jsonText = jsonText.replace(new RegExp('\\s+', 'g'), ' ');
-          jsonText = jsonText.replace(new RegExp(',\\s*}', 'g'), '}');
-          jsonText = jsonText.replace(new RegExp(',\\s*]', 'g'), ']');
+          jsonText = jsonText.replace(/\r?\n/g, ' ');
+          jsonText = jsonText.replace(/\s+/g, ' ');
+          jsonText = jsonText.replace(/,\s*}/g, '}');
+          jsonText = jsonText.replace(/,\s*]/g, ']');
           jsonText = jsonText.trim();
 
           const parsed = JSON.parse(jsonText);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Calculator,
@@ -19,7 +19,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 
+import { trackEvent } from '@/lib/analytics';
+import { useSettings } from '@/providers/settings-provider';
+
 type PlantType = 'succulent' | 'tropical' | 'flowering' | 'foliage' | 'herb' | 'fern';
+const toCelsius = (fahrenheit: number) => (fahrenheit - 32) * 5 / 9;
+const toFahrenheit = (celsius: number) => (celsius * 9) / 5 + 32;
+
 type PotSize = 'small' | 'medium' | 'large' | 'xlarge';
 type Season = 'spring' | 'summer' | 'fall' | 'winter';
 type SoilType = 'well-draining' | 'moisture-retaining' | 'sandy' | 'clay';
@@ -37,6 +43,10 @@ interface WateringResult {
 
 export default function WaterCalculatorScreen() {
   const insets = useSafeAreaInsets();
+  const { settings } = useSettings();
+  const measurementUnit = settings.measurementUnit;
+  const remindersEnabled = settings.wateringReminders;
+  const pushEnabled = settings.pushNotifications;
   const [plantType, setPlantType] = useState<PlantType>('foliage');
   const [potSize, setPotSize] = useState<PotSize>('medium');
   const [season, setSeason] = useState<Season>('spring');
@@ -45,6 +55,41 @@ export default function WaterCalculatorScreen() {
   const [temperature, setTemperature] = useState<string>('22');
   const [humidity, setHumidity] = useState<string>('50');
   const [result, setResult] = useState<WateringResult | null>(null);
+  const previousMeasurementUnit = useRef(measurementUnit);
+
+  useEffect(() => {
+    const previousUnit = previousMeasurementUnit.current;
+    if (previousUnit === measurementUnit) {
+      return;
+    }
+
+    setTemperature((currentValue) => {
+      const numeric = Number.parseFloat(currentValue);
+      if (!Number.isFinite(numeric)) {
+        return measurementUnit === 'imperial' ? '72' : '22';
+      }
+
+      const converted = previousUnit === 'metric'
+        ? (numeric * 9) / 5 + 32
+        : (numeric - 32) * 5 / 9;
+      return `${Math.round(converted)}`;
+    });
+
+    setResult(null);
+    previousMeasurementUnit.current = measurementUnit;
+  }, [measurementUnit]);
+
+  const formatTemperature = useCallback((celsius: number) => {
+    const roundedC = Math.round(celsius);
+    const roundedF = Math.round(toFahrenheit(celsius));
+    return measurementUnit === 'imperial'
+      ? `${roundedF}°F (${roundedC}°C)`
+      : `${roundedC}°C (${roundedF}°F)`;
+  }, [measurementUnit]);
+
+  const temperaturePlaceholder = useMemo(() => (measurementUnit === 'imperial' ? '72' : '22'), [measurementUnit]);
+  const temperatureUnitLabel = useMemo(() => (measurementUnit === 'imperial' ? '\u00B0F' : '\u00B0C'), [measurementUnit]);
+
 
   const plantTypes: { key: PlantType; label: string; icon: SelectorIcon }[] = [
     { key: 'succulent', label: 'Succulent/Cactus', icon: Sprout },
@@ -247,17 +292,21 @@ export default function WaterCalculatorScreen() {
       reasons.push(`${environmentLabel} change evaporation rates and therefore watering cadence.`);
     }
 
-    const tempValue = Number.parseFloat(temperature);
-    if (Number.isFinite(tempValue)) {
-      if (tempValue >= 29) {
+    const rawTemperature = Number.parseFloat(temperature);
+    const temperatureC = Number.isFinite(rawTemperature)
+      ? (measurementUnit === 'imperial' ? toCelsius(rawTemperature) : rawTemperature)
+      : null;
+
+    if (temperatureC !== null) {
+      if (temperatureC >= 29) {
         frequency *= 0.72;
-        reasons.push('Temperatures above 29\u00B0C accelerate evaporation, shortening the interval.');
-      } else if (tempValue >= 24) {
+        reasons.push(`Temperatures above ${formatTemperature(29)} accelerate evaporation, shortening the interval.`);
+      } else if (temperatureC >= 24) {
         frequency *= 0.85;
-        reasons.push('Mid-20\u00B0C temperatures slightly increase water demand.');
-      } else if (tempValue <= 15) {
+        reasons.push(`Warm conditions around ${formatTemperature(24)} slightly increase water demand.`);
+      } else if (temperatureC <= 15) {
         frequency *= 1.22;
-        reasons.push('Cooler rooms slow plant metabolism, so you can wait a little longer between waterings.');
+        reasons.push(`Cooler rooms near ${formatTemperature(15)} slow plant metabolism, so you can wait a little longer between waterings.`);
       }
     }
 
@@ -279,9 +328,9 @@ export default function WaterCalculatorScreen() {
       * soilVolumeMultiplier[soilType]
       * environmentVolumeMultiplier[environment];
 
-    if (Number.isFinite(tempValue)) {
-      if (tempValue >= 29) amountMl *= 1.1;
-      if (tempValue <= 15) amountMl *= 0.9;
+    if (temperatureC !== null) {
+      if (temperatureC >= 29) amountMl *= 1.1;
+      if (temperatureC <= 15) amountMl *= 0.9;
     }
 
     if (Number.isFinite(humidityValue)) {
@@ -293,7 +342,10 @@ export default function WaterCalculatorScreen() {
     const roundedAmountMl = Math.round(amountMl / 10) * 10;
     const cups = roundedAmountMl / 236.588;
     const cupText = cups >= 3 ? `${Math.round(cups)} cups` : `${cups.toFixed(cups >= 1 ? 1 : 2)} cups`;
-    const amountText = `${roundedAmountMl} ml (${cupText})`;
+    const ounces = roundedAmountMl / 29.5735;
+    const amountText = measurementUnit === 'imperial'
+      ? `${ounces >= 10 ? Math.round(ounces) : ounces.toFixed(1)} fl oz (${cupText} | ${roundedAmountMl} ml)`
+      : `${roundedAmountMl} ml (${cupText})`;
 
     const nextWateringDate = new Date();
     nextWateringDate.setDate(nextWateringDate.getDate() + frequency);
@@ -337,16 +389,46 @@ export default function WaterCalculatorScreen() {
   const handleCalculate = () => {
     const calculatedResult = calculateWatering();
     setResult(calculatedResult);
+    trackEvent('water_calculator.calculate', {
+      measurementUnit,
+      plantType,
+      potSize,
+      environment,
+      hasTemperatureInput: Number.isFinite(Number.parseFloat(temperature)),
+      hasHumidityInput: Number.isFinite(Number.parseFloat(humidity)),
+    });
   };
 
   const handleSaveSchedule = () => {
-    if (!result) return;
-    
-    Alert.alert(
-      'Schedule Saved',
-      `Your watering schedule has been saved! You'll water every ${result.frequency} days with ${result.amount}.`,
-      [{ text: 'OK' }]
-    );
+    if (!result) {
+      return;
+    }
+
+    if (!remindersEnabled) {
+      Alert.alert(
+        'Enable reminders',
+        'Turn on watering reminders in Settings to keep receiving schedule nudges.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => router.push('/settings') },
+        ]
+      );
+      return;
+    }
+
+    const reminderMessage = pushEnabled
+      ? `Your watering schedule has been saved! We'll remind you every ${result.frequency} days with ${result.amount}.`
+      : `Your watering schedule has been saved for reference. Push notifications are disabled, so check back every ${result.frequency} days for ${result.amount}.`
+      ;
+
+    Alert.alert('Schedule Saved', reminderMessage, [{ text: 'OK' }]);
+    trackEvent('water_calculator.schedule_saved', {
+      measurementUnit,
+      frequency: result.frequency,
+      amount: result.amount,
+      remindersEnabled,
+      pushEnabled,
+    });
   };
 
   const renderSelector = <T extends string>(
@@ -433,14 +515,14 @@ export default function WaterCalculatorScreen() {
               <View style={styles.inputContainer}>
                 <View style={styles.inputLabel}>
                   <Thermometer size={16} color="#6B7280" />
-                  <Text style={styles.inputLabelText}>Temperature (\u00B0C)</Text>
+                  <Text style={styles.inputLabelText}>Temperature ({temperatureUnitLabel})</Text>
                 </View>
                 <TextInput
                   style={styles.textInput}
                   value={temperature}
                   onChangeText={setTemperature}
                   keyboardType="numeric"
-                  placeholder="22"
+                  placeholder={temperaturePlaceholder}
                 />
               </View>
               
