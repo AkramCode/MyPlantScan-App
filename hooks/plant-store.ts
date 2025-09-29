@@ -1,9 +1,20 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { PlantIdentification, PlantHealth, UserPlant } from '@/types/plant';
 import { Platform } from 'react-native';
 import { openRouterService } from '@/lib/openrouter';
+import { ensureGuestToken } from '@/lib/guest-token';
+import {
+  fetchPlantIdentifications,
+  savePlantIdentification,
+  fetchPlantHealthRecords,
+  savePlantHealthRecord,
+  fetchGardenPlants,
+  saveGardenPlant,
+  deleteGardenPlant,
+} from '@/lib/supabase';
+import { useAuth } from '@/providers/auth-provider';
 // Simple storage helper
 const getStorageItem = async (key: string): Promise<string | null> => {
   if (Platform.OS === 'web') {
@@ -23,7 +34,7 @@ const setStorageItem = async (key: string, value: string): Promise<void> => {
   }
 };
 
-const STORAGE_KEYS = {
+const STORAGE_BASE_KEYS = {
   IDENTIFICATIONS: 'plant_identifications',
   HEALTH_RECORDS: 'plant_health_records',
   USER_PLANTS: 'user_plants',
@@ -1099,375 +1110,566 @@ const normalizeHealthRecord = (
 
 export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
   const queryClient = useQueryClient();
+  const { session, user, loading: authLoading } = useAuth();
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const [guestTokenReady, setGuestTokenReady] = useState(false);
   const [isIdentifying, setIsIdentifying] = useState(false);
   const [isAnalyzingHealth, setIsAnalyzingHealth] = useState(false);
 
-  // Load identifications
-  const identificationsQuery = useQuery({
-    queryKey: ['plant_identifications'],
-    queryFn: async (): Promise<PlantIdentification[]> => {
-      try {
-        const stored = await getStorageItem(STORAGE_KEYS.IDENTIFICATIONS);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            return parsed as PlantIdentification[];
-          }
-        } else {
-          await setStorageItem(STORAGE_KEYS.IDENTIFICATIONS, JSON.stringify([]));
+  useEffect(() => {
+    let mounted = true;
+    ensureGuestToken()
+      .then((token) => {
+        if (mounted) {
+          setGuestToken(token);
         }
-      } catch (error) {
-        console.error('Error parsing stored identifications:', error);
-      }
-
-      await setStorageItem(STORAGE_KEYS.IDENTIFICATIONS, JSON.stringify([]));
-      return [];
-    },
-  });
-
-  // Load health records
-  const healthRecordsQuery = useQuery({
-    queryKey: ['plant_health_records'],
-    queryFn: async (): Promise<PlantHealth[]> => {
-      try {
-        const stored = await getStorageItem(STORAGE_KEYS.HEALTH_RECORDS);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            return parsed as PlantHealth[];
-          }
-        } else {
-          await setStorageItem(STORAGE_KEYS.HEALTH_RECORDS, JSON.stringify([]));
+      })
+      .catch((error) => {
+        console.warn('PlantStore: Failed to initialize guest token', error);
+      })
+      .finally(() => {
+        if (mounted) {
+          setGuestTokenReady(true);
         }
-      } catch (error) {
-        console.error('Error parsing stored health records:', error);
-      }
-
-      await setStorageItem(STORAGE_KEYS.HEALTH_RECORDS, JSON.stringify([]));
-      return [];
-    },
-  });
-
-  // Load user plants
-  const userPlantsQuery = useQuery({
-    queryKey: ['user_plants'],
-    queryFn: async (): Promise<UserPlant[]> => {
-      try {
-        const stored = await getStorageItem(STORAGE_KEYS.USER_PLANTS);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            return parsed as UserPlant[];
-          }
-        } else {
-          await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify([]));
-        }
-      } catch (error) {
-        console.error('Error parsing stored user plants:', error);
-      }
-
-      await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify([]));
-      return [];
-    },
-  });
-
-  // Save identification mutation
-  const saveIdentificationMutation = useMutation({
-    mutationFn: async (identification: PlantIdentification) => {
-      const current = identificationsQuery.data || [];
-      const updated = [identification, ...current];
-      await setStorageItem(STORAGE_KEYS.IDENTIFICATIONS, JSON.stringify(updated));
-      return updated;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plant_identifications'] });
-    },
-  });
-
-  // Save health record mutation
-  const saveHealthRecordMutation = useMutation({
-    mutationFn: async (healthRecord: PlantHealth) => {
-      const current = healthRecordsQuery.data || [];
-      const updated = [healthRecord, ...current];
-      await setStorageItem(STORAGE_KEYS.HEALTH_RECORDS, JSON.stringify(updated));
-      return updated;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plant_health_records'] });
-    },
-  });
-
-  // Save user plant mutation
-  const saveUserPlantMutation = useMutation({
-    mutationFn: async (plant: UserPlant) => {
-      const current = userPlantsQuery.data || [];
-      const updated = [plant, ...current];
-      await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify(updated));
-      return updated;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user_plants'] });
-    },
-  });
-
-  // Identify plant using AI
-  const identifyPlant = useCallback(async (imageUri: string): Promise<PlantIdentification> => {
-    if (!imageUri?.trim()) {
-      throw new Error('Image URI is required');
-    }
-    console.log('Setting isIdentifying to true');
-    setIsIdentifying(true);
-    try {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.readAsDataURL(blob);
       });
 
-      // Use OpenRouter for plant identification
-      const aiResponseText = await openRouterService.identifyPlant(base64);
-
-      // Parse the AI response to extract JSON
-      let plantDetails: PlantDetails;
-      try {
-        console.log('Raw OpenRouter response:', aiResponseText);
-
-        const cleanedText = aiResponseText.trim();
-        let jsonText = '';
-
-        const jsonBlockMatch = cleanedText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/i);
-        if (jsonBlockMatch) {
-          jsonText = jsonBlockMatch[1];
-        } else {
-          const firstBrace = cleanedText.indexOf('{');
-          const lastBrace = cleanedText.lastIndexOf('}');
-
-          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonText = cleanedText.substring(firstBrace, lastBrace + 1);
-          } else {
-            throw new Error('No valid JSON structure found in response');
-          }
-        }
-
-        console.log('Extracted JSON text:', jsonText);
-
-        jsonText = jsonText
-          .replace(/\u0000/g, '')
-          .replace(/\r?\n/g, ' ')
-          .replace(/\s+/g, ' ')
-          .replace(/,\s*}/g, '}')
-          .replace(/,\s*]/g, ']')
-          .trim();
-
-        const parsed = JSON.parse(jsonText);
-        plantDetails = normalizePlantIdentification(parsed);
-        console.log('Successfully parsed and normalized plant data:', plantDetails);
-      } catch (parseError) {
-        console.error('Failed to parse OpenRouter response:', parseError);
-        console.error('Response that failed to parse:', aiResponseText);
-        plantDetails = createDefaultPlantDetails();
-      }
-
-      const identification: PlantIdentification = {
-        id: Date.now().toString(),
-        timestamp: Date.now(),
-        imageUri,
-        ...plantDetails,
-      };
-
-      await saveIdentificationMutation.mutateAsync(identification);
-      return identification;
-    } catch (error) {
-      console.error('Error identifying plant:', error);
-      throw error;
-    } finally {
-      console.log('Setting isIdentifying to false');
-      setIsIdentifying(false);
-    }
-  }, [saveIdentificationMutation]);
-
-  // Analyze plant health
-  const analyzeHealth = useCallback(async (imageUri: string, plantId?: string): Promise<PlantHealth> => {
-    if (!imageUri?.trim()) {
-      throw new Error('Image URI is required');
-    }
-    setIsAnalyzingHealth(true);
-    try {
-      console.log('Starting health analysis for image:', imageUri);
-      
-      const response = await fetch(imageUri);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          if (result) {
-            resolve(result.split(',')[1]);
-          } else {
-            reject(new Error('Failed to convert image to base64'));
-          }
-        };
-        reader.onerror = () => reject(new Error('FileReader error'));
-        reader.readAsDataURL(blob);
-      });
-
-      console.log('Image converted to base64, making API request...');
-      
-      // Use OpenRouter for health analysis
-      const identificationContext = plantId
-        ? (identificationsQuery.data || []).find(item => item.id === plantId)
-        : undefined;
-
-      const aiResponseText = await openRouterService.analyzeHealth({
-        imageBase64: base64,
-        plantName: identificationContext?.plantName,
-        scientificName: identificationContext?.scientificName,
-        maxTokens: 2600,
-      });
-
-      console.log('Raw OpenRouter health analysis response:', aiResponseText);
-
-      let healthDetails: HealthRecordDetails;
-      try {
-        const cleanedText = aiResponseText.trim();
-        let jsonText = '';
-
-        const jsonBlockMatch = cleanedText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/i);
-        if (jsonBlockMatch) {
-          jsonText = jsonBlockMatch[1];
-        } else {
-          const firstBrace = cleanedText.indexOf('{');
-          const lastBrace = cleanedText.lastIndexOf('}');
-
-          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonText = cleanedText.substring(firstBrace, lastBrace + 1);
-          } else {
-            jsonText = cleanedText;
-          }
-        }
-
-        console.log('Extracted health JSON text:', jsonText);
-
-        if (!jsonText) {
-          throw new Error('No JSON content found in response');
-        }
-
-        jsonText = jsonText
-          .replace(/\u0000/g, '')
-          .replace(/\r?\n/g, ' ')
-          .replace(/\s+/g, ' ')
-          .replace(/,\s*}/g, '}')
-          .replace(/,\s*]/g, ']')
-          .trim();
-
-        const parsed = JSON.parse(jsonText);
-        healthDetails = normalizeHealthRecord(parsed, {
-          plantName: identificationContext?.plantName,
-          scientificName: identificationContext?.scientificName,
-        });
-        console.log('Successfully parsed and normalized health data:', healthDetails);
-      } catch (parseError) {
-        console.error('Failed to parse OpenRouter health analysis response:', parseError);
-        console.error('Response that failed to parse:', aiResponseText);
-
-        healthDetails = normalizeHealthRecord({}, {
-          plantName: identificationContext?.plantName,
-          scientificName: identificationContext?.scientificName,
-        });
-      }
-
-      const healthRecord: PlantHealth = {
-        id: Date.now().toString(),
-        plantId: plantId || '',
-        timestamp: Date.now(),
-        imageUri,
-        ...healthDetails,
-      };
-
-      console.log('Saving health record:', healthRecord);
-      await saveHealthRecordMutation.mutateAsync(healthRecord);
-      console.log('Health record saved successfully');
-      return healthRecord;
-    } catch (error) {
-      console.error('Error analyzing plant health:', error);
-      throw new Error('Failed to analyze plant health. Please try again.');
-    } finally {
-      setIsAnalyzingHealth(false);
-    }
-  }, [saveHealthRecordMutation, identificationsQuery.data]);
-
-  // Add plant to garden
-  const addToGarden = useCallback(async (identification: PlantIdentification, location: string = '', notes: string = '') => {
-    const userPlant: UserPlant = {
-      id: Date.now().toString(),
-      plantName: identification.plantName,
-      scientificName: identification.scientificName,
-      imageUri: identification.imageUri,
-      dateAdded: Date.now(),
-      notes,
-      location,
-      identificationId: identification.id,
+    return () => {
+      mounted = false;
     };
+  }, []);
 
-    await saveUserPlantMutation.mutateAsync(userPlant);
-    return userPlant;
-  }, [saveUserPlantMutation]);
+  const storageNamespace = useMemo(() => {
+    if (session?.access_token) {
+      return user?.id ? `user:${user.id}` : 'user:pending';
+    }
+    if (guestToken) {
+      return `guest:${guestToken}`;
+    }
+    return 'anonymous';
+  }, [session?.access_token, user?.id, guestToken]);
 
-  // Remove plant from garden mutation
-  const removeFromGardenMutation = useMutation({
-    mutationFn: async (plantId: string) => {
-      const current = userPlantsQuery.data || [];
-      const updated = current.filter(plant => plant.id !== plantId);
-      await setStorageItem(STORAGE_KEYS.USER_PLANTS, JSON.stringify(updated));
-      return updated;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user_plants'] });
+  const storageKeys = useMemo(
+    () => ({
+      identifications: `${STORAGE_BASE_KEYS.IDENTIFICATIONS}:${storageNamespace}`,
+      healthRecords: `${STORAGE_BASE_KEYS.HEALTH_RECORDS}:${storageNamespace}`,
+      userPlants: `${STORAGE_BASE_KEYS.USER_PLANTS}:${storageNamespace}`,
+    }),
+    [storageNamespace]
+  );
+
+  const resolveScope = useCallback(async () => {
+    if (session?.access_token) {
+      return { accessToken: session.access_token };
+    }
+    if (guestToken) {
+      return { guestToken };
+    }
+    const generated = await ensureGuestToken();
+    setGuestToken(generated);
+    return { guestToken: generated };
+  }, [session?.access_token, guestToken]);
+
+  const readCachedIdentifications = useCallback(async (): Promise<PlantIdentification[]> => {
+    try {
+      const stored = await getStorageItem(storageKeys.identifications);
+      if (!stored) {
+        return [];
+      }
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? (parsed as PlantIdentification[]) : [];
+    } catch (error) {
+      console.warn('PlantStore: Failed to parse cached identifications', error);
+      return [];
+    }
+  }, [storageKeys.identifications]);
+
+  const writeCachedIdentifications = useCallback(async (items: PlantIdentification[]) => {
+    try {
+      await setStorageItem(storageKeys.identifications, JSON.stringify(items));
+    } catch (error) {
+      console.warn('PlantStore: Failed to persist cached identifications', error);
+    }
+  }, [storageKeys.identifications]);
+
+  const readCachedHealthRecords = useCallback(async (): Promise<PlantHealth[]> => {
+    try {
+      const stored = await getStorageItem(storageKeys.healthRecords);
+      if (!stored) {
+        return [];
+      }
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? (parsed as PlantHealth[]) : [];
+    } catch (error) {
+      console.warn('PlantStore: Failed to parse cached health records', error);
+      return [];
+    }
+  }, [storageKeys.healthRecords]);
+
+  const writeCachedHealthRecords = useCallback(async (items: PlantHealth[]) => {
+    try {
+      await setStorageItem(storageKeys.healthRecords, JSON.stringify(items));
+    } catch (error) {
+      console.warn('PlantStore: Failed to persist cached health records', error);
+    }
+  }, [storageKeys.healthRecords]);
+
+  const readCachedUserPlants = useCallback(async (): Promise<UserPlant[]> => {
+    try {
+      const stored = await getStorageItem(storageKeys.userPlants);
+      if (!stored) {
+        return [];
+      }
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? (parsed as UserPlant[]) : [];
+    } catch (error) {
+      console.warn('PlantStore: Failed to parse cached garden plants', error);
+      return [];
+    }
+  }, [storageKeys.userPlants]);
+
+  const writeCachedUserPlants = useCallback(async (items: UserPlant[]) => {
+    try {
+      await setStorageItem(storageKeys.userPlants, JSON.stringify(items));
+    } catch (error) {
+      console.warn('PlantStore: Failed to persist cached garden plants', error);
+    }
+  }, [storageKeys.userPlants]);
+
+  useEffect(() => {
+    if (!storageNamespace) {
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['plant_identifications'] });
+    queryClient.invalidateQueries({ queryKey: ['plant_health_records'] });
+    queryClient.invalidateQueries({ queryKey: ['user_plants'] });
+  }, [storageNamespace, queryClient]);
+
+  const identificationsQuery = useQuery<PlantIdentification[]>({
+    queryKey: ['plant_identifications', storageNamespace],
+    enabled: !authLoading && (Boolean(session?.access_token) || guestTokenReady),
+    initialData: [] as PlantIdentification[],
+    queryFn: async () => {
+      const fallback = await readCachedIdentifications();
+      try {
+        const scope = await resolveScope();
+        const { data, error } = await fetchPlantIdentifications(scope);
+        if (error) {
+          throw new Error(error.message);
+        }
+        await writeCachedIdentifications(data);
+        return data;
+      } catch (error) {
+        console.warn('PlantStore: fetchPlantIdentifications failed', error);
+        return fallback;
+      }
     },
   });
 
-  // Remove plant from garden
-  const removeFromGarden = useCallback(async (plantId: string) => {
-    await removeFromGardenMutation.mutateAsync(plantId);
-  }, [removeFromGardenMutation]);
+  const healthRecordsQuery = useQuery<PlantHealth[]>({
+    queryKey: ['plant_health_records', storageNamespace],
+    enabled: !authLoading && (Boolean(session?.access_token) || guestTokenReady),
+    initialData: [] as PlantHealth[],
+    queryFn: async () => {
+      const fallback = await readCachedHealthRecords();
+      try {
+        const scope = await resolveScope();
+        const { data, error } = await fetchPlantHealthRecords(scope);
+        if (error) {
+          throw new Error(error.message);
+        }
+        await writeCachedHealthRecords(data);
+        return data;
+      } catch (error) {
+        console.warn('PlantStore: fetchPlantHealthRecords failed', error);
+        return fallback;
+      }
+    },
+  });
 
-  return useMemo(() => ({
-    // Data
-    identifications: (identificationsQuery.data ?? ([] as PlantIdentification[])),
-    healthRecords: (healthRecordsQuery.data ?? ([] as PlantHealth[])),
-    userPlants: (userPlantsQuery.data ?? ([] as UserPlant[])),
-    
-    // Loading states
-    isLoading: identificationsQuery.isLoading || healthRecordsQuery.isLoading || userPlantsQuery.isLoading,
-    isIdentifying,
-    isAnalyzingHealth,
-    
-    // Actions
-    identifyPlant,
-    analyzeHealth,
-    addToGarden,
-    removeFromGarden,
-  }), [
-    identificationsQuery.data,
-    healthRecordsQuery.data,
-    userPlantsQuery.data,
-    identificationsQuery.isLoading,
-    healthRecordsQuery.isLoading,
-    userPlantsQuery.isLoading,
-    isIdentifying,
-    isAnalyzingHealth,
-    identifyPlant,
-    analyzeHealth,
-    addToGarden,
-    removeFromGarden,
-  ]);
+  const userPlantsQuery = useQuery<UserPlant[]>({
+    queryKey: ['user_plants', storageNamespace],
+    enabled: !authLoading && (Boolean(session?.access_token) || guestTokenReady),
+    initialData: [] as UserPlant[],
+    queryFn: async () => {
+      const fallback = await readCachedUserPlants();
+      try {
+        const scope = await resolveScope();
+        const { data, error } = await fetchGardenPlants(scope);
+        if (error) {
+          throw new Error(error.message);
+        }
+        await writeCachedUserPlants(data);
+        return data;
+      } catch (error) {
+        console.warn('PlantStore: fetchGardenPlants failed', error);
+        return fallback;
+      }
+    },
+  });
+
+  const saveIdentificationMutation = useMutation<PlantIdentification, Error, PlantIdentification>({
+    mutationFn: async (identification) => {
+      const scope = await resolveScope();
+      const { data, error } = await savePlantIdentification({
+        identification,
+        accessToken: scope.accessToken,
+        guestToken: scope.guestToken,
+      });
+      if (error || !data) {
+        throw new Error(error?.message ?? 'Unable to save plant identification');
+      }
+      return data;
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<PlantIdentification[]>(
+        ['plant_identifications', storageNamespace],
+        (current = []) => {
+          const filtered = current.filter((item) => item.id !== saved.id);
+          const next = [saved, ...filtered];
+          void writeCachedIdentifications(next);
+          return next;
+        }
+      );
+    },
+  });
+
+  const saveHealthRecordMutation = useMutation<PlantHealth, Error, PlantHealth>({
+    mutationFn: async (record) => {
+      const scope = await resolveScope();
+      const { data, error } = await savePlantHealthRecord({
+        healthRecord: record,
+        accessToken: scope.accessToken,
+        guestToken: scope.guestToken,
+      });
+      if (error || !data) {
+        throw new Error(error?.message ?? 'Unable to save plant health record');
+      }
+      return data;
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<PlantHealth[]>(
+        ['plant_health_records', storageNamespace],
+        (current = []) => {
+          const filtered = current.filter((item) => item.id !== saved.id);
+          const next = [saved, ...filtered];
+          void writeCachedHealthRecords(next);
+          return next;
+        }
+      );
+    },
+  });
+
+  const saveUserPlantMutation = useMutation<UserPlant, Error, UserPlant>({
+    mutationFn: async (plant) => {
+      const scope = await resolveScope();
+      const { data, error } = await saveGardenPlant({
+        plant,
+        accessToken: scope.accessToken,
+        guestToken: scope.guestToken,
+      });
+      if (error || !data) {
+        throw new Error(error?.message ?? 'Unable to save garden plant');
+      }
+      return data;
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<UserPlant[]>(
+        ['user_plants', storageNamespace],
+        (current = []) => {
+          const filtered = current.filter((item) => item.id !== saved.id);
+          const next = [saved, ...filtered];
+          void writeCachedUserPlants(next);
+          return next;
+        }
+      );
+    },
+  });
+
+  const removeFromGardenMutation = useMutation<string, Error, string>({
+    mutationFn: async (plantId) => {
+      const scope = await resolveScope();
+      const { data, error } = await deleteGardenPlant({
+        plantId,
+        accessToken: scope.accessToken,
+        guestToken: scope.guestToken,
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+      if (!data?.success) {
+        throw new Error('Failed to remove garden plant');
+      }
+      return plantId;
+    },
+    onSuccess: (plantId) => {
+      queryClient.setQueryData<UserPlant[]>(
+        ['user_plants', storageNamespace],
+        (current = []) => {
+          const next = current.filter((item) => item.id !== plantId);
+          void writeCachedUserPlants(next);
+          return next;
+        }
+      );
+    },
+  });
+
+  const identifyPlant = useCallback(
+    async (imageUri: string): Promise<PlantIdentification> => {
+      if (!imageUri?.trim()) {
+        throw new Error('Image URI is required');
+      }
+      console.log('Setting isIdentifying to true');
+      setIsIdentifying(true);
+      try {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string | null;
+            if (!result) {
+              reject(new Error('Failed to convert image to base64'));
+              return;
+            }
+            resolve(result.split(',')[1] ?? '');
+          };
+          reader.onerror = () => reject(new Error('FileReader error'));
+          reader.readAsDataURL(blob);
+        });
+
+        const aiResponseText = await openRouterService.identifyPlant(base64);
+
+        let plantDetails: PlantDetails;
+        try {
+          console.log('Raw OpenRouter response:', aiResponseText);
+
+          const cleanedText = aiResponseText.trim();
+          let jsonText = '';
+
+          const jsonBlockMatch = cleanedText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/i);
+          if (jsonBlockMatch) {
+            jsonText = jsonBlockMatch[1];
+          } else {
+            const firstBrace = cleanedText.indexOf('{');
+            const lastBrace = cleanedText.lastIndexOf('}');
+
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              jsonText = cleanedText.substring(firstBrace, lastBrace + 1);
+            } else {
+              throw new Error('No valid JSON structure found in response');
+            }
+          }
+
+          jsonText = jsonText.replace(new RegExp('\\r?\\n', 'g'), ' ');
+          jsonText = jsonText.replace(new RegExp('\\s+', 'g'), ' ');
+          jsonText = jsonText.replace(new RegExp(',\\s*}', 'g'), '}');
+          jsonText = jsonText.replace(new RegExp(',\\s*]', 'g'), ']');
+          jsonText = jsonText.trim();
+
+          plantDetails = normalizePlantIdentification(JSON.parse(jsonText));
+        } catch (parseError) {
+          console.error('Failed to parse identification response:', parseError);
+          plantDetails = normalizePlantIdentification({});
+        }
+
+        const dataUri = `data:${blob.type || 'image/jpeg'};base64,${base64}`;
+
+        const identification: PlantIdentification = {
+          id: Date.now().toString(),
+          timestamp: Date.now(),
+          imageUri: dataUri,
+          ...plantDetails,
+        };
+
+        const saved = await saveIdentificationMutation.mutateAsync(identification);
+        return saved;
+      } catch (error) {
+        console.error('Error identifying plant:', error);
+        throw error;
+      } finally {
+        console.log('Setting isIdentifying to false');
+        setIsIdentifying(false);
+      }
+    },
+    [saveIdentificationMutation]
+  );
+
+  const analyzeHealth = useCallback(
+    async (imageUri: string, plantId?: string): Promise<PlantHealth> => {
+      if (!imageUri?.trim()) {
+        throw new Error('Image URI is required');
+      }
+      setIsAnalyzingHealth(true);
+      try {
+        console.log('Starting health analysis for image:', imageUri);
+
+        const response = await fetch(imageUri);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string | null;
+            if (!result) {
+              reject(new Error('Failed to convert image to base64'));
+              return;
+            }
+            resolve(result.split(',')[1] ?? '');
+          };
+          reader.onerror = () => reject(new Error('FileReader error'));
+          reader.readAsDataURL(blob);
+        });
+
+        console.log('Image converted to base64, making API request...');
+
+        const identificationContext = plantId
+          ? (identificationsQuery.data || []).find((item) => item.id === plantId)
+          : undefined;
+
+        const aiResponseText = await openRouterService.analyzeHealth({
+          imageBase64: base64,
+          plantName: identificationContext?.plantName,
+          scientificName: identificationContext?.scientificName,
+          maxTokens: 2600,
+        });
+
+        console.log('Raw OpenRouter health analysis response:', aiResponseText);
+
+        let healthDetails: HealthRecordDetails;
+        try {
+          const cleanedText = aiResponseText.trim();
+          let jsonText = '';
+
+          const jsonBlockMatch = cleanedText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/i);
+          if (jsonBlockMatch) {
+            jsonText = jsonBlockMatch[1];
+          } else {
+            const firstBrace = cleanedText.indexOf('{');
+            const lastBrace = cleanedText.lastIndexOf('}');
+
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              jsonText = cleanedText.substring(firstBrace, lastBrace + 1);
+            } else {
+              jsonText = cleanedText;
+            }
+          }
+
+          console.log('Extracted health JSON text:', jsonText);
+
+          if (!jsonText) {
+            throw new Error('No JSON content found in response');
+          }
+
+          jsonText = jsonText.replace(new RegExp('\\r?\\n', 'g'), ' ');
+          jsonText = jsonText.replace(new RegExp('\\s+', 'g'), ' ');
+          jsonText = jsonText.replace(new RegExp(',\\s*}', 'g'), '}');
+          jsonText = jsonText.replace(new RegExp(',\\s*]', 'g'), ']');
+          jsonText = jsonText.trim();
+
+          const parsed = JSON.parse(jsonText);
+          healthDetails = normalizeHealthRecord(parsed, {
+            plantName: identificationContext?.plantName,
+            scientificName: identificationContext?.scientificName,
+          });
+          console.log('Successfully parsed and normalized health data:', healthDetails);
+        } catch (parseError) {
+          console.error('Failed to parse OpenRouter health analysis response:', parseError);
+          console.error('Response that failed to parse:', aiResponseText);
+
+          healthDetails = normalizeHealthRecord({}, {
+            plantName: identificationContext?.plantName,
+            scientificName: identificationContext?.scientificName,
+          });
+        }
+
+        const dataUri = `data:${blob.type || 'image/jpeg'};base64,${base64}`;
+
+        const healthRecord: PlantHealth = {
+          id: Date.now().toString(),
+          plantId: plantId || '',
+          timestamp: Date.now(),
+          imageUri: dataUri,
+          ...healthDetails,
+        };
+
+        console.log('Saving health record:', healthRecord);
+        const saved = await saveHealthRecordMutation.mutateAsync(healthRecord);
+        console.log('Health record saved successfully');
+        return saved;
+      } catch (error) {
+        console.error('Error analyzing plant health:', error);
+        throw new Error('Failed to analyze plant health. Please try again.');
+      } finally {
+        setIsAnalyzingHealth(false);
+      }
+    },
+    [saveHealthRecordMutation, identificationsQuery.data]
+  );
+
+  const addToGarden = useCallback(
+    async (identification: PlantIdentification, location: string = '', notes: string = '') => {
+      const userPlant: UserPlant = {
+        id: Date.now().toString(),
+        plantName: identification.plantName,
+        scientificName: identification.scientificName,
+        imageUri: identification.imageUri,
+        dateAdded: Date.now(),
+        notes,
+        location,
+        identificationId: identification.id,
+      };
+
+      const saved = await saveUserPlantMutation.mutateAsync(userPlant);
+      return saved;
+    },
+    [saveUserPlantMutation]
+  );
+
+  const removeFromGarden = useCallback(
+    async (plantId: string) => {
+      await removeFromGardenMutation.mutateAsync(plantId);
+    },
+    [removeFromGardenMutation]
+  );
+
+  return useMemo(
+    () => ({
+      identifications: identificationsQuery.data ?? ([] as PlantIdentification[]),
+      healthRecords: healthRecordsQuery.data ?? ([] as PlantHealth[]),
+      userPlants: userPlantsQuery.data ?? ([] as UserPlant[]),
+
+      isLoading:
+        identificationsQuery.isLoading ||
+        healthRecordsQuery.isLoading ||
+        userPlantsQuery.isLoading,
+      isIdentifying,
+      isAnalyzingHealth,
+
+      identifyPlant,
+      analyzeHealth,
+      addToGarden,
+      removeFromGarden,
+    }),
+    [
+      identificationsQuery.data,
+      healthRecordsQuery.data,
+      userPlantsQuery.data,
+      identificationsQuery.isLoading,
+      healthRecordsQuery.isLoading,
+      userPlantsQuery.isLoading,
+      isIdentifying,
+      isAnalyzingHealth,
+      identifyPlant,
+      analyzeHealth,
+      addToGarden,
+      removeFromGarden,
+    ]
+  );
 });
+
+
+
+

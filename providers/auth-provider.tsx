@@ -18,6 +18,8 @@ import {
   type ProfileUpdate,
 } from '@/lib/supabase';
 
+const STORAGE_PREFIXES = ['plant_identifications', 'plant_health_records', 'user_plants'] as const;
+
 const clearStorageData = async () => {
   try {
     if (Platform.OS === 'web') {

@@ -1,4 +1,5 @@
-﻿const DEFAULT_BACKEND_URL = 'https://www.myplantscan.com';
+import type { PlantHealth, PlantIdentification, UserPlant } from '@/types/plant';
+const DEFAULT_BACKEND_URL = 'https://www.myplantscan.com';
 
 const getBackendBaseUrl = () => {
   const configured = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -51,10 +52,12 @@ async function request<T>(
     method = 'GET',
     body,
     accessToken,
+    guestToken,
   }: {
-    method?: 'GET' | 'POST' | 'PUT';
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
     body?: Record<string, unknown>;
     accessToken?: string;
+    guestToken?: string;
   } = {}
 ): Promise<{ data: T | null; error: BackendError | null }> {
   const headers: Record<string, string> = {
@@ -62,8 +65,12 @@ async function request<T>(
   };
 
   if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    if (guestToken) {
+      headers['x-guest-token'] = guestToken;
+    }
 
   try {
     const response = await fetch(`${baseUrl}${path}`, {
@@ -176,3 +183,176 @@ export async function updatePassword(accessToken: string, password: string) {
   });
 }
 
+
+type PlantDataScope = {
+  accessToken?: string;
+  guestToken?: string;
+};
+
+type SaveIdentificationPayload = PlantDataScope & {
+  identification: PlantIdentification;
+};
+
+type SaveHealthRecordPayload = PlantDataScope & {
+  healthRecord: PlantHealth;
+};
+
+type SaveGardenPlantPayload = PlantDataScope & {
+  plant: UserPlant;
+};
+
+type UpdateGardenPlantPayload = SaveGardenPlantPayload;
+
+type DeleteGardenPlantPayload = PlantDataScope & {
+  plantId: string;
+};
+
+const IDENTIFICATIONS_ENDPOINT = '/api/plants/identifications';
+const HEALTH_RECORDS_ENDPOINT = '/api/plants/health-records';
+const GARDEN_ENDPOINT = '/api/plants/garden';
+
+export async function fetchPlantIdentifications(
+  scope: PlantDataScope
+): Promise<{ data: PlantIdentification[]; error: BackendError | null }> {
+  const { data, error } = await request<{ identifications: PlantIdentification[] | undefined }>(
+    IDENTIFICATIONS_ENDPOINT,
+    {
+      method: 'GET',
+      accessToken: scope.accessToken,
+      guestToken: scope.guestToken,
+    }
+  );
+
+  if (error) {
+    return { data: [], error };
+  }
+
+  return {
+    data: data?.identifications ?? [],
+    error: null,
+  };
+}
+
+export async function savePlantIdentification(
+  payload: SaveIdentificationPayload
+): Promise<{ data: PlantIdentification | null; error: BackendError | null }> {
+  const { data, error } = await request<{ identification: PlantIdentification }>(IDENTIFICATIONS_ENDPOINT, {
+    method: 'POST',
+    body: { identification: payload.identification },
+    accessToken: payload.accessToken,
+    guestToken: payload.guestToken,
+  });
+
+  return {
+    data: data?.identification ?? null,
+    error,
+  };
+}
+
+export async function fetchPlantHealthRecords(
+  scope: PlantDataScope
+): Promise<{ data: PlantHealth[]; error: BackendError | null }> {
+  const { data, error } = await request<{ healthRecords: PlantHealth[] | undefined }>(
+    HEALTH_RECORDS_ENDPOINT,
+    {
+      method: 'GET',
+      accessToken: scope.accessToken,
+      guestToken: scope.guestToken,
+    }
+  );
+
+  if (error) {
+    return { data: [], error };
+  }
+
+  return {
+    data: data?.healthRecords ?? [],
+    error: null,
+  };
+}
+
+export async function savePlantHealthRecord(
+  payload: SaveHealthRecordPayload
+): Promise<{ data: PlantHealth | null; error: BackendError | null }> {
+  const { data, error } = await request<{ healthRecord: PlantHealth }>(HEALTH_RECORDS_ENDPOINT, {
+    method: 'POST',
+    body: { healthRecord: payload.healthRecord },
+    accessToken: payload.accessToken,
+    guestToken: payload.guestToken,
+  });
+
+  return {
+    data: data?.healthRecord ?? null,
+    error,
+  };
+}
+
+export async function fetchGardenPlants(
+  scope: PlantDataScope
+): Promise<{ data: UserPlant[]; error: BackendError | null }> {
+  const { data, error } = await request<{ plants: UserPlant[] | undefined }>(
+    GARDEN_ENDPOINT,
+    {
+      method: 'GET',
+      accessToken: scope.accessToken,
+      guestToken: scope.guestToken,
+    }
+  );
+
+  if (error) {
+    return { data: [], error };
+  }
+
+  return {
+    data: data?.plants ?? [],
+    error: null,
+  };
+}
+
+export async function saveGardenPlant(
+  payload: SaveGardenPlantPayload
+): Promise<{ data: UserPlant | null; error: BackendError | null }> {
+  const { data, error } = await request<{ plant: UserPlant }>(GARDEN_ENDPOINT, {
+    method: 'POST',
+    body: { plant: payload.plant },
+    accessToken: payload.accessToken,
+    guestToken: payload.guestToken,
+  });
+
+  return {
+    data: data?.plant ?? null,
+    error,
+  };
+}
+
+export async function updateGardenPlant(
+  payload: UpdateGardenPlantPayload
+): Promise<{ data: UserPlant | null; error: BackendError | null }> {
+  const { data, error } = await request<{ plant: UserPlant }>(GARDEN_ENDPOINT, {
+    method: 'PUT',
+    body: { plant: payload.plant },
+    accessToken: payload.accessToken,
+    guestToken: payload.guestToken,
+  });
+
+  return {
+    data: data?.plant ?? null,
+    error,
+  };
+}
+
+export async function deleteGardenPlant(
+  payload: DeleteGardenPlantPayload
+): Promise<{ data: { success: boolean } | null; error: BackendError | null }> {
+  const query = new URLSearchParams({ id: payload.plantId }).toString();
+  const { data, error } = await request<{ success: boolean }>(`${GARDEN_ENDPOINT}?${query}`, {
+    method: 'DELETE',
+    accessToken: payload.accessToken,
+    guestToken: payload.guestToken,
+  });
+
+  return {
+    data: data ? { success: Boolean(data.success) } : null,
+    error,
+  };
+}
