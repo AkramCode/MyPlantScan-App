@@ -235,7 +235,7 @@ export default function SettingsScreen() {
   }, []);
 
   const handleSignIn = useCallback(() => {
-    router.push('/auth');
+    router.push('/(tabs)');
   }, []);
 
   const handleSignOut = useCallback(() => {

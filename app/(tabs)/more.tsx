@@ -116,42 +116,7 @@ export default function MoreScreen() {
     router.push('/help');
   };
 
-  const handleContactSupport = async () => {
-    try {
-      const supportEmail = 'support@myplantscan.com';
-      const subject = 'MyPlantScan Support Request';
-      const body = `Hi MyPlantScan Team,\n\nI need help with:\n\n[Please describe your issue here]\n\nApp Version: 1.0.0\nPlatform: ${Platform.OS}\n\nThank you!`;
-      
-      const emailUrl = `mailto:${supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      
-      const canOpen = await Linking.canOpenURL(emailUrl);
-      if (canOpen) {
-        await Linking.openURL(emailUrl);
-      } else {
-        Alert.alert(
-          'Contact Support',
-          `Please email us at: ${supportEmail}`,
-          [
-            {
-              text: 'Copy Email',
-              onPress: async () => {
-                if (Platform.OS === 'web' && navigator.clipboard) {
-                  await navigator.clipboard.writeText(supportEmail);
-                  Alert.alert('Copied!', 'Email address copied to clipboard.');
-                }
-              }
-            },
-            { text: 'OK' }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Error opening email:', error);
-      if (Platform.OS !== 'web') {
-        Alert.alert('Contact Support', 'Please email us at: support@myplantscan.com');
-      }
-    }
-  };
+
 
   const handleAbout = () => {
     router.push('/about');

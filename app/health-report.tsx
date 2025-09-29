@@ -154,7 +154,7 @@ export default function HealthReportScreen() {
 
     const severityColor = severity ? getSeverityColor(severity) : Colors.textSecondary;
 
-    const statusPills: Array<{ label: string; textColor: string; background: string }> = severity
+    const statusPills: { label: string; textColor: string; background: string }[] = severity
       ? [{
           label: `${severity.charAt(0).toUpperCase()}${severity.slice(1)} severity`,
           textColor: severityColor,
@@ -238,14 +238,14 @@ export default function HealthReportScreen() {
         background: Colors.warningLight,
         items: Array.from(environmentWatch),
       },
-    ].filter(Boolean) as Array<{
+    ].filter(Boolean) as {
       key: string;
       title: string;
       icon: typeof Shield;
       color: string;
       background: string;
       items: string[];
-    }>;
+    }[];
 
     return {
       headline: `${severityHeadlineMap[severity] || 'AI summary'}: ${conditionName}`,

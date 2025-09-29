@@ -10,11 +10,10 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function ResetPassword() {
-  const { token } = useLocalSearchParams<{ token?: string }>();
   const { updatePassword } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

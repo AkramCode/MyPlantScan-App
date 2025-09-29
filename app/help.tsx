@@ -22,7 +22,6 @@ import {
   BookOpen,
   MessageCircle,
   Mail,
-  Phone,
   ExternalLink,
   Camera,
   Leaf,
@@ -30,10 +29,7 @@ import {
   Sun,
   Heart,
   Settings,
-  User,
   Users,
-  Shield,
-  Smartphone,
   Lightbulb,
   AlertTriangle
 } from 'lucide-react-native';
@@ -251,67 +247,7 @@ export default function HelpScreen() {
     setExpandedFAQ(newExpanded);
   };
 
-  const handleContactPress = async (type: string) => {
-    setLoadingStates(prev => ({ ...prev, [type]: true }));
-    
-    try {
-      switch (type) {
-        case 'email':
-          const emailUrl = 'mailto:support@myplantscan.com?subject=Help Request';
-          const canOpenEmail = await Linking.canOpenURL(emailUrl);
-          if (canOpenEmail) {
-            await Linking.openURL(emailUrl);
-          } else {
-            Alert.alert('Error', 'No email client found. Please email us at support@myplantscan.com');
-          }
-          break;
-        case 'chat':
-          Alert.alert('Live Chat', 'Live chat feature coming soon! For now, please email us at support@myplantscan.com');
-          break;
-        case 'forum':
-          const forumUrl = 'https://community.myplantscan.com';
-          const canOpenForum = await Linking.canOpenURL(forumUrl);
-          if (canOpenForum) {
-            await Linking.openURL(forumUrl);
-          } else {
-            Alert.alert('Error', 'Unable to open community forum. Please try again later.');
-          }
-          break;
-        case 'bug':
-          const bugUrl = 'mailto:bugs@myplantscan.com?subject=Bug Report';
-          const canOpenBug = await Linking.canOpenURL(bugUrl);
-          if (canOpenBug) {
-            await Linking.openURL(bugUrl);
-          } else {
-            Alert.alert('Error', 'No email client found. Please email us at bugs@myplantscan.com');
-          }
-          break;
-        case 'feedback':
-          const feedbackUrl = 'mailto:feedback@myplantscan.com?subject=App Feedback';
-          const canOpenFeedback = await Linking.canOpenURL(feedbackUrl);
-          if (canOpenFeedback) {
-            await Linking.openURL(feedbackUrl);
-          } else {
-            Alert.alert('Error', 'No email client found. Please email us at feedback@myplantscan.com');
-          }
-          break;
-        case 'feature':
-          const featureUrl = 'mailto:features@myplantscan.com?subject=Feature Request';
-          const canOpenFeature = await Linking.canOpenURL(featureUrl);
-          if (canOpenFeature) {
-            await Linking.openURL(featureUrl);
-          } else {
-            Alert.alert('Error', 'No email client found. Please email us at features@myplantscan.com');
-          }
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling contact:', error);
-      Alert.alert('Error', 'Unable to complete action. Please try again.');
-    } finally {
-      setLoadingStates(prev => ({ ...prev, [type]: false }));
-    }
-  };
+
 
   const handleEmailPress = async (email: string) => {
     const loadingKey = `email_${email}`;
@@ -348,23 +284,7 @@ export default function HelpScreen() {
     }
   };
 
-  const handleLinkPress = async (url: string, loadingKey: string) => {
-    setLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
-    
-    try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Link', `Please visit: ${url}`);
-      }
-    } catch (error) {
-      console.error('Error opening link:', error);
-      Alert.alert('Link', `Please visit: ${url}`);
-    } finally {
-      setLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
-    }
-  };
+
 
   const renderFAQTab = () => (
     <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
