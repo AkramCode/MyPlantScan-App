@@ -1,109 +1,152 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
+  AppState,
   FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Image,
   useWindowDimensions,
-  Alert,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import {
-  Sparkles,
-  Scan,
-  HeartPulse,
-  Camera,
-  Image as ImageIcon,
-  Library,
-  CalendarCheck,
-  Cloud,
-  CheckCircle2,
-  Leaf,
   ArrowRight,
-  ArrowLeft,
+  CalendarCheck,
+  Camera as CameraIcon,
+  CheckCircle2,
+  Cloud,
+  HeartPulse,
+  Image as ImageIcon,
+  Leaf,
+  Library,
+  Scan,
+  Sparkles,
 } from 'lucide-react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 import { Colors } from '@/constants/colors';
 import { markOnboardingComplete } from '@/lib/onboarding-storage';
-import { slides, IconName, OnboardingSlide } from './slides';
+import type { IconName, OnboardingSlide } from '@/constants/onboarding-slides';
+import { slides } from '@/constants/onboarding-slides';
 
 const iconMap: Record<IconName, LucideIcon> = {
   Sparkles,
   Scan,
   HeartPulse,
-  Camera,
+  Camera: CameraIcon,
   Image: ImageIcon,
+  Leaf,
   Library,
   CalendarCheck,
   Cloud,
   CheckCircle2,
-  Leaf,
 };
+
+// Preload artwork 1..10 from assets/onboarding
+const slideImages = [
+  require('@/assets/onboarding/1.webp'),
+  require('@/assets/onboarding/2.webp'),
+  require('@/assets/onboarding/3.webp'),
+  require('@/assets/onboarding/4.webp'),
+  require('@/assets/onboarding/5.webp'),
+  require('@/assets/onboarding/6.webp'),
+  require('@/assets/onboarding/7.webp'),
+  require('@/assets/onboarding/8.webp'),
+  require('@/assets/onboarding/9.webp'),
+  require('@/assets/onboarding/10.webp'),
+] as const;
 
 type OnboardingCardProps = {
   item: OnboardingSlide;
   width: number;
-  onRequestPermission: (type: 'camera' | 'library') => void;
+  index: number;
   permissionGranted: boolean;
+  onRequestPermission: (type: 'camera' | 'library') => Promise<boolean>;
+  onOpenSettings: () => void;
 };
 
-const OnboardingCard: React.FC<OnboardingCardProps> = ({ 
-  item, 
-  width, 
+const OnboardingCard: React.FC<OnboardingCardProps> = ({
+  item,
+  width,
+  index,
+  permissionGranted,
   onRequestPermission,
-  permissionGranted 
+  onOpenSettings,
 }) => {
   const Icon = iconMap[item.icon];
+  const showPermissionCta = Boolean(item.requiresPermission);
 
   return (
-    <View style={[styles.slide, { width }]}>
-      <View style={styles.iconContainer}>
-        <View style={[styles.iconBadge, { backgroundColor: item.accent }]}>
-          <Icon size={40} color={Colors.white} strokeWidth={2} />
-        </View>
-      </View>
+    <View style={[styles.slideContainer, { width }]}> 
+      <View style={styles.slideCard}>
+        <Image
+          source={slideImages[index] ?? slideImages[slideImages.length - 1]}
+          style={styles.slideImage}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
 
-      <View style={styles.contentContainer}>
-        <Text style={styles.slideTitle}>{item.title}</Text>
-        <Text style={styles.slideDescription}>{item.description}</Text>
+        <Text style={styles.slideTitle}>
+          {item.title}
+        </Text>
+        {/* description hidden per request */}
 
-        {item.requiresPermission && (
+        {showPermissionCta && (
           <View style={styles.permissionSection}>
+            {item.permissionTitle && (
+              <Text style={styles.permissionTitle}>{item.permissionTitle}</Text>
+            )}
+            {item.permissionDescription && (
+              <Text style={styles.permissionDetails}>{item.permissionDescription}</Text>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.permissionButton,
                 permissionGranted && styles.permissionButtonGranted,
               ]}
-              onPress={() => !permissionGranted && onRequestPermission(item.requiresPermission!)}
+              onPress={() => {
+                if (item.requiresPermission) {
+                  void onRequestPermission(item.requiresPermission);
+                }
+              }}
               disabled={permissionGranted}
+              accessibilityRole="button"
+              accessibilityHint={
+                permissionGranted
+                  ? 'Permission already granted'
+                  : 'Request the required permission'
+              }
             >
               {permissionGranted ? (
                 <>
-                  <CheckCircle2 size={20} color={Colors.white} strokeWidth={2.5} />
-                  <Text style={styles.permissionButtonText}>Access Granted</Text>
+                  <CheckCircle2 size={18} color={Colors.white} strokeWidth={2.5} />
+                  <Text style={styles.permissionButtonText}>Permission enabled</Text>
                 </>
               ) : (
                 <>
-                  <Text style={styles.permissionButtonText}>
-                    Grant {item.requiresPermission === 'camera' ? 'Camera' : 'Photo Library'} Access
-                  </Text>
-                  <ArrowRight size={20} color={Colors.white} strokeWidth={2.5} />
+                  <Text style={styles.permissionButtonText}>Grant access</Text>
+                  <ArrowRight size={18} color={Colors.white} strokeWidth={2.5} />
                 </>
               )}
             </TouchableOpacity>
+
             {!permissionGranted && (
-              <Text style={styles.permissionNote}>
-                Required to use all features
-              </Text>
+              <TouchableOpacity
+                onPress={onOpenSettings}
+                style={styles.settingsLink}
+                accessibilityRole="button"
+                accessibilityLabel="Open device settings to manage permissions"
+              >
+                <Text style={styles.settingsLinkText}>Open device settings</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -116,45 +159,99 @@ export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<OnboardingSlide>>(null);
+  const appState = useRef(AppState.currentState);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [libraryPermission, setLibraryPermission] = useState<boolean>(false);
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
+  const [libraryPermissionGranted, setLibraryPermissionGranted] = useState(false);
 
-  // Check library permission on mount
-  React.useEffect(() => {
-    (async () => {
-      const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
-      setLibraryPermission(status === 'granted');
-    })();
+  const totalSlides = slides.length;
+  const currentSlide = slides[currentIndex];
+  const requiredPermission = currentSlide.requiresPermission;
+  const currentPermissionGranted =
+    requiredPermission === 'camera'
+      ? cameraPermissionGranted
+      : requiredPermission === 'library'
+      ? libraryPermissionGranted
+      : true;
+  const isLastSlide = currentIndex === totalSlides - 1;
+
+  const syncPermissions = useCallback(async () => {
+    try {
+      const [camera, library] = await Promise.all([
+        Camera.getCameraPermissionsAsync(),
+        ImagePicker.getMediaLibraryPermissionsAsync(),
+      ]);
+
+      setCameraPermissionGranted(camera.granted);
+      setLibraryPermissionGranted(library.granted);
+    } catch (error) {
+      console.error('Onboarding: permission sync failed', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    void syncPermissions();
+  }, [syncPermissions]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        void syncPermissions();
+      }
+      appState.current = nextState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [syncPermissions]);
+
+  useEffect(() => {
+    listRef.current?.scrollToIndex({ index: currentIndex, animated: false });
+  }, [width, currentIndex]);
+
+  const handleOpenSettings = useCallback(() => {
+    void Linking.openSettings();
   }, []);
 
   const handleRequestPermission = useCallback(async (type: 'camera' | 'library') => {
     try {
       if (type === 'camera') {
-        const result = await requestCameraPermission();
+        const result = await Camera.requestCameraPermissionsAsync();
+        setCameraPermissionGranted(result.granted);
+
         if (!result.granted) {
           Alert.alert(
-            'Permission Required',
-            'Camera access is needed to identify plants. Please enable it in your device settings.',
-            [{ text: 'OK' }]
+            'Camera access is required',
+            'Enable camera access in your device settings to scan plants in real time.'
           );
         }
-      } else {
-        const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        setLibraryPermission(result.granted);
-        if (!result.granted) {
-          Alert.alert(
-            'Permission Required',
-            'Photo library access helps you identify plants from existing photos. Please enable it in your device settings.',
-            [{ text: 'OK' }]
-          );
-        }
+
+        return result.granted;
       }
+
+      const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      setLibraryPermissionGranted(result.granted);
+
+      if (!result.granted) {
+        Alert.alert(
+          'Photo access is required',
+          'Allow photo library access in settings to analyse saved plant images.'
+        );
+      }
+
+      return result.granted;
     } catch (error) {
-      console.error('Error requesting permission:', error);
+      console.error('Onboarding: permission request error', error);
+      Alert.alert(
+        'Unable to request permission',
+        'Please try again or update the permission from your device settings.'
+      );
+      return false;
     }
-  }, [requestCameraPermission]);
+  }, []);
 
   const completeOnboarding = useCallback(async () => {
     if (isCompleting) {
@@ -165,14 +262,22 @@ export default function OnboardingScreen() {
     try {
       await markOnboardingComplete();
     } catch (error) {
-      console.error('Onboarding: complete error', error);
+      console.error('Onboarding: completion error', error);
     } finally {
-      router.replace('/(tabs)');
+      router.replace('/auth');
     }
   }, [isCompleting]);
 
   const handleNext = useCallback(() => {
-    if (currentIndex >= slides.length - 1) {
+    if (requiredPermission && !currentPermissionGranted) {
+      Alert.alert(
+        'Grant permission to continue',
+        'Please enable the required permission before moving forward.'
+      );
+      return;
+    }
+
+    if (isLastSlide) {
       void completeOnboarding();
       return;
     }
@@ -180,7 +285,7 @@ export default function OnboardingScreen() {
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
     listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-  }, [completeOnboarding, currentIndex]);
+  }, [completeOnboarding, currentIndex, currentPermissionGranted, isLastSlide, requiredPermission]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex === 0) {
@@ -192,26 +297,37 @@ export default function OnboardingScreen() {
     listRef.current?.scrollToIndex({ index: previousIndex, animated: true });
   }, [currentIndex]);
 
-  const handleScrollEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const nextIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-      if (nextIndex !== currentIndex && nextIndex >= 0 && nextIndex < slides.length) {
-        setCurrentIndex(nextIndex);
-      }
+  const renderItem = useCallback(
+    ({ item, index: _index }: { item: OnboardingSlide; index: number }) => {
+      const permissionGrantedForSlide =
+        item.requiresPermission === 'camera'
+          ? cameraPermissionGranted
+          : item.requiresPermission === 'library'
+          ? libraryPermissionGranted
+          : true;
+
+      return (
+        <OnboardingCard
+          item={item}
+          width={width}
+          index={_index}
+          permissionGranted={permissionGrantedForSlide}
+          onRequestPermission={handleRequestPermission}
+          onOpenSettings={handleOpenSettings}
+        />
+      );
     },
-    [currentIndex, width]
+    [
+      cameraPermissionGranted,
+      handleOpenSettings,
+      handleRequestPermission,
+      libraryPermissionGranted,
+      width,
+    ]
   );
 
-  const isLastSlide = currentIndex === slides.length - 1;
-  const currentSlide = slides[currentIndex];
-  
-  // Check if current permission slide has granted permission
-  const currentPermissionGranted = 
-    currentSlide.requiresPermission === 'camera' 
-      ? cameraPermission?.granted ?? false
-      : currentSlide.requiresPermission === 'library'
-      ? libraryPermission
-      : true;
+  const isContinueDisabled =
+    isCompleting || (requiredPermission ? !currentPermissionGranted : false);
 
   return (
     <View
@@ -219,98 +335,64 @@ export default function OnboardingScreen() {
         styles.container,
         {
           paddingTop: insets.top + 20,
-          paddingBottom: insets.bottom + 32,
+          paddingBottom: insets.bottom + 24,
         },
       ]}
     >
-      <StatusBar style='dark' />
+      <StatusBar style="dark" />
 
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.brandText}>MyPlantScan</Text>
+        <TouchableOpacity
+          style={[
+            styles.headerBackButton,
+            currentIndex === 0 && styles.headerBackButtonDisabled,
+          ]}
+          onPress={handlePrevious}
+          disabled={currentIndex === 0}
+          accessibilityRole="button"
+          accessibilityLabel="Go to previous step"
+          accessibilityState={{ disabled: currentIndex === 0 }}
+        >
+          <Text style={styles.headerBackLabel}>{'<'}</Text>
+        </TouchableOpacity>
+
         <View style={styles.progressIndicator}>
           <View style={styles.progressTrack}>
-            <View 
+            <View
               style={[
-                styles.progressFill, 
-                { width: `${((currentIndex + 1) / slides.length) * 100}%` }
-              ]} 
+                styles.progressFill,
+                { width: `${((currentIndex + 1) / totalSlides) * 100}%` },
+              ]}
             />
           </View>
-          <Text style={styles.progressText}>
-            {currentIndex + 1} of {slides.length}
-          </Text>
         </View>
       </View>
 
-      {/* Slides */}
       <FlatList
         ref={listRef}
         data={slides}
         keyExtractor={item => item.key}
         horizontal
         pagingEnabled
+        scrollEnabled={false}
         bounces={false}
         showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <OnboardingCard 
-            item={item} 
-            width={width}
-            onRequestPermission={handleRequestPermission}
-            permissionGranted={
-              item.requiresPermission === 'camera' 
-                ? cameraPermission?.granted ?? false
-                : item.requiresPermission === 'library'
-                ? libraryPermission
-                : true
-            }
-          />
-        )}
-        onMomentumScrollEnd={handleScrollEnd}
-        scrollEventThrottle={16}
+        renderItem={renderItem}
         style={styles.slidesList}
+        contentContainerStyle={styles.slidesContent}
       />
 
-      {/* Dots Indicator */}
-      <View style={styles.dotsContainer}>
-        {slides.map((slide, index) => (
-          <View
-            key={slide.key}
-            style={[
-              styles.dot,
-              index === currentIndex && styles.dotActive,
-              index === currentIndex && { backgroundColor: currentSlide.accent },
-            ]}
-          />
-        ))}
-      </View>
-
-      {/* Navigation Buttons */}
       <View style={styles.navigationContainer}>
-        {currentIndex > 0 && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handlePrevious}
-            accessibilityRole='button'
-            accessibilityLabel='Go to previous screen'
-          >
-            <ArrowLeft size={20} color={Colors.textSecondary} strokeWidth={2.5} />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-        )}
-        
-        <View style={{ flex: 1 }} />
-
         <TouchableOpacity
           style={[
             styles.nextButton,
             { backgroundColor: currentSlide.accent },
-            isCompleting && styles.nextButtonDisabled,
+            isContinueDisabled && styles.nextButtonDisabled,
           ]}
           onPress={handleNext}
-          disabled={isCompleting}
-          accessibilityRole='button'
-          accessibilityLabel={isLastSlide ? 'Get started' : 'Continue to next screen'}
+          disabled={isContinueDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={isLastSlide ? 'Finish onboarding' : 'Continue to next step'}
         >
           <Text style={styles.nextButtonText}>
             {isLastSlide ? 'Get Started' : 'Continue'}
@@ -328,179 +410,157 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
     paddingHorizontal: 24,
-    marginBottom: 24,
+    marginBottom: 12,
   },
-  brandText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 16,
-    letterSpacing: -0.5,
+  headerBackButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  headerBackLabel: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  headerBackButtonDisabled: {
+    opacity: 0.4,
   },
   progressIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   progressTrack: {
     flex: 1,
-    height: 4,
+    height: 6,
     backgroundColor: Colors.gray200,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     backgroundColor: Colors.primary,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    minWidth: 60,
-    textAlign: 'right',
   },
   slidesList: {
-    flexGrow: 0,
-  },
-  slide: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingVertical: 20,
   },
-  iconContainer: {
+  slidesContent: {
+    flexGrow: 1,
+  },
+  slideContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  slideCard: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 24,
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 20,
+    gap: 24,
   },
   iconBadge: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    display: 'none',
   },
-  contentContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  slideImage: {
+    width: '100%',
+    height: 340,
+    marginTop: 6,
+    marginHorizontal: 2,
   },
   slideTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     color: Colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: -0.5,
-    lineHeight: 34,
+    letterSpacing: -0.6,
+    marginBottom: 12,
   },
   slideDescription: {
-    fontSize: 17,
-    lineHeight: 26,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 8,
+    display: 'none',
   },
   permissionSection: {
-    marginTop: 32,
-    width: '100%',
+    marginTop: 28,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray200,
+    paddingTop: 24,
     alignItems: 'center',
+    gap: 16,
+  },
+  permissionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  permissionDetails: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 6,
   },
   permissionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 26,
     backgroundColor: Colors.primary,
-    borderRadius: 14,
+    borderRadius: 16,
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    minWidth: 240,
+    minWidth: 220,
   },
   permissionButtonGranted: {
     backgroundColor: Colors.success,
   },
   permissionButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.white,
+    letterSpacing: 0.2,
   },
-  permissionNote: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 12,
-    textAlign: 'center',
+  settingsLink: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
-  dotsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.gray300,
-  },
-  dotActive: {
-    width: 24,
-    height: 8,
-    borderRadius: 4,
+  settingsLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   navigationContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    paddingTop: 12,
     paddingHorizontal: 24,
-    gap: 16,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
   },
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 14,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    minWidth: 160,
+    paddingVertical: 18,
+    borderRadius: 18,
+    width: '100%',
   },
   nextButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.4,
   },
   nextButtonText: {
     fontSize: 17,
     fontWeight: '700',
     color: Colors.white,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
 });
+
+
+

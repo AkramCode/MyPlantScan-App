@@ -34,7 +34,7 @@ import {
 import Constants from 'expo-constants';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/providers/auth-provider';
-import { clearOnboardingFlag } from '@/lib/onboarding-storage';
+import { clearOnboardingFlag, getForceOnboardingEnabled, setForceOnboardingEnabled } from '@/lib/onboarding-storage';
 import { MeasurementUnit, ThemePreference, useSettings } from '@/providers/settings-provider';
 
 const measurementLabels: Record<MeasurementUnit, string> = {
@@ -101,6 +101,20 @@ export default function SettingsScreen() {
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
+  const [forceOnboarding, setForceOnboarding] = React.useState(false);
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const enabled = await getForceOnboardingEnabled();
+        if (mounted) setForceOnboarding(enabled);
+      } catch (_e) {
+        // noop
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const measurementLabel = useMemo(
     () => measurementLabels[settings.measurementUnit],
     [settings.measurementUnit]
@@ -164,23 +178,31 @@ export default function SettingsScreen() {
   const resetOnboarding = useCallback(async () => {
     try {
       await clearOnboardingFlag();
-      Alert.alert(
-        'Onboarding reset',
-        'The welcome tour will appear the next time you open MyPlantScan.'
-      );
+      router.replace('/onboarding/welcome');
     } catch (error) {
       console.error('settings: reset onboarding error', error);
       Alert.alert('Reset failed', 'Please try again later.');
     }
   }, []);
 
+  const toggleForceOnboarding = useCallback(async () => {
+    try {
+      const next = !forceOnboarding;
+      setForceOnboarding(next);
+      await setForceOnboardingEnabled(next);
+    } catch (error) {
+      console.error('settings: toggle force onboarding error', error);
+      Alert.alert('Update failed', 'Please try again later.');
+    }
+  }, [forceOnboarding]);
+
   const handleResetOnboarding = useCallback(() => {
     Alert.alert(
-      'Show onboarding again',
-      'We will reset your onboarding progress so you can view the tour on the next launch.',
+      'Restart onboarding?',
+      'We will reset your progress and relaunch the welcome tour now.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Reset', onPress: () => { void resetOnboarding(); } },
+        { text: 'Restart', onPress: () => { void resetOnboarding(); } },
       ]
     );
   }, [resetOnboarding]);
@@ -415,9 +437,25 @@ export default function SettingsScreen() {
             <View style={styles.card}>
               <SettingRow
                 icon={<RefreshCcw size={20} color={Colors.primary} />}
-                title='Reset onboarding tour'
-                subtitle='Show the welcome experience on the next launch.'
+                title='Start onboarding now'
+                subtitle='Immediately relaunch the welcome experience.'
                 onPress={handleResetOnboarding}
+              />
+              <SettingRow
+                icon={<SlidersHorizontal size={20} color={Colors.primary} />}
+                title='Always show onboarding'
+                subtitle='Force the welcome tour to appear on every launch.'
+                trailing={
+                  <Switch
+                    value={forceOnboarding}
+                    onValueChange={_ => { void toggleForceOnboarding(); }}
+                    trackColor={{ false: Colors.gray300, true: Colors.primary }}
+                    thumbColor={Colors.white}
+                    ios_backgroundColor={Colors.gray300}
+                    style={styles.switch}
+                  />
+                }
+                onPress={() => { void toggleForceOnboarding(); }}
               />
               <SettingRow
                 icon={<SlidersHorizontal size={20} color={Colors.primary} />}

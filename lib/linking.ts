@@ -37,6 +37,7 @@ export const linking: LinkingOptions<ParamListBase> = {
       auth: {
         path: 'auth',
         screens: {
+          index: '',
           confirm: AUTH_SCREEN_PATHS.confirm,
           'reset-password': AUTH_SCREEN_PATHS.resetPassword,
         },

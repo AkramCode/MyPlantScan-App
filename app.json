@@ -9,10 +9,10 @@
                  "userInterfaceStyle":  "automatic",
                  "newArchEnabled":  true,
                  "splash":  {
-                                "image":  "./assets/images/icon.png",
-                                "resizeMode":  "contain",
-                                "backgroundColor":  "#F9FAFB"
-                            },
+                                 "image":  "./assets/images/icon.png",
+                                 "resizeMode":  "contain",
+                                 "backgroundColor":  "#F9FAFB"
+                             },
                  "ios":  {
                              "supportsTablet":  true,
                              "bundleIdentifier":  "com.myplantscan.www",

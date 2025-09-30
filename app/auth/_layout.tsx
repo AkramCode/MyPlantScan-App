@@ -11,6 +11,13 @@ export default function AuthLayout() {
       }}
     >
       <Stack.Screen 
+        name="index" 
+        options={{ 
+          title: 'Sign In',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
         name="confirm" 
         options={{ 
           title: 'Email Confirmation',
