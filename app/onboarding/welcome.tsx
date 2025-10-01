@@ -23,9 +23,9 @@ export default function OnboardingWelcome() {
           resizeMode='contain'
           accessibilityIgnoresInvertColors
         />
-        <Text style={styles.title}>🌿 Welcome to MyPlantScan</Text>
-        <Text style={styles.subtitle}>Your AI-Powered Plant Care Companion</Text>
-        <Text style={styles.description}>Discover, identify, and nurture your green friends with confidence. Let's grow together! 🌱</Text>
+  <Text style={styles.title}>Welcome to MyPlantScan</Text>
+  <Text style={styles.subtitle}>Smarter plant care</Text>
+  <Text style={styles.description}>Scan, diagnose, and track with AI.</Text>
       </View>
 
       <View style={styles.actions}>

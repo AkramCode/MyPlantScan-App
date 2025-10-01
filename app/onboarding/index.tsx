@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   AppState,
@@ -152,38 +152,23 @@ const OnboardingCard: React.FC<OnboardingCardProps> = ({
           accessibilityIgnoresInvertColors
         />
 
-        <View style={[styles.textContainer, isQuizSlide && styles.quizTextContainer]}>
-          <Text style={[styles.slideTitle, isQuizSlide && styles.quizSlideTitle]}>
-            {item.title}
-          </Text>
-          
-          {/* Subtitles removed on quiz slides to keep content minimal and avoid overflow */}
-          {item.subtitle && !isQuizSlide && (
-            <Text style={styles.slideSubtitle}>
-              {item.subtitle}
-            </Text>
-          )}
-          
-          <Text style={[styles.slideDescription, isQuizSlide && styles.quizSlideDescription]}>
-            {item.description}
-          </Text>
-        </View>
-
-        {isQuizSlide && item.quizOptions && item.quizQuestion && (
-          <View style={styles.quizContainer}>
-            <Text style={styles.quizQuestion}>{item.quizQuestion}</Text>
-            <View style={styles.quizOptionsContainer}>
-              {item.quizOptions.map((option) => (
-                <QuizChoice
-                  key={option.id}
-                  option={option}
-                  isSelected={selectedQuizOption === option.id}
-                  onSelect={() => onQuizOptionSelect?.(option.id)}
-                />
-              ))}
-            </View>
-          </View>
-        )}
+        {/* Bottom content stack: text + quiz/permission kept above button */}
+        <ContentStack
+          isQuiz={isQuizSlide}
+          title={item.title}
+          subtitle={item.subtitle}
+          description={item.description}
+          quizQuestion={item.quizQuestion}
+          quizOptions={item.quizOptions}
+          selectedQuizOption={selectedQuizOption}
+          onQuizOptionSelect={onQuizOptionSelect}
+          showPermissionCta={showPermissionCta}
+          permissionTitle={item.permissionTitle}
+          permissionDescription={item.permissionDescription}
+          permissionGranted={permissionGranted}
+          onRequestPermission={onRequestPermission}
+          onOpenSettings={onOpenSettings}
+        />
 
         {showPermissionCta && (
           <View style={styles.permissionSection}>
@@ -245,6 +230,86 @@ const OnboardingCard: React.FC<OnboardingCardProps> = ({
           </View>
         )}
       </View>
+    </View>
+  );
+};
+
+type ContentStackProps = {
+  isQuiz: boolean;
+  title: string;
+  subtitle?: string;
+  description: string;
+  quizQuestion?: string;
+  quizOptions?: QuizOption[];
+  selectedQuizOption?: string;
+  onQuizOptionSelect?: (id: string) => void;
+  showPermissionCta: boolean;
+  permissionTitle?: string;
+  permissionDescription?: string;
+  permissionGranted: boolean;
+  onRequestPermission: (type: 'camera' | 'library') => Promise<boolean>;
+  onOpenSettings: () => void;
+};
+
+const ContentStack: React.FC<ContentStackProps> = ({
+  isQuiz,
+  title,
+  subtitle,
+  description,
+  quizQuestion,
+  quizOptions,
+  selectedQuizOption,
+  onQuizOptionSelect,
+}) => {
+  const { height } = useWindowDimensions();
+  // Scale text slightly on taller screens to reduce empty space, capped for safety
+  const fontScale = useMemo(() => {
+    const baseH = 640; // small phone
+    const maxH = 932; // large phone
+    const ratio = Math.max(0, Math.min(1, (height - baseH) / (maxH - baseH)));
+    return 1 + ratio * 0.22; // up to ~22% increase
+  }, [height]);
+
+  const titleStyle = [
+    styles.slideTitle,
+    isQuiz && styles.quizSlideTitle,
+    { fontSize: (isQuiz ? 22 : 24) * fontScale },
+  ];
+  const subtitleStyle = [
+    styles.slideSubtitle,
+    { fontSize: 18 * fontScale },
+  ];
+  const descStyle = [
+    styles.slideDescription,
+    isQuiz && styles.quizSlideDescription,
+    { fontSize: (isQuiz ? 14 : 16) * fontScale, lineHeight: (isQuiz ? 20 : 24) * fontScale },
+  ];
+
+  return (
+    <View style={styles.contentStack}>
+      <View style={[styles.textContainer, isQuiz && styles.quizTextContainer]}>
+        <Text style={titleStyle}>{title}</Text>
+        {!isQuiz && subtitle ? (
+          <Text style={subtitleStyle}>{subtitle}</Text>
+        ) : null}
+        <Text style={descStyle}>{description}</Text>
+      </View>
+
+      {isQuiz && quizOptions && quizQuestion && (
+        <View style={styles.quizContainer}>
+          <Text style={styles.quizQuestion}>{quizQuestion}</Text>
+          <View style={styles.quizOptionsContainer}>
+            {quizOptions.map((option) => (
+              <QuizChoice
+                key={option.id}
+                option={option}
+                isSelected={selectedQuizOption === option.id}
+                onSelect={() => onQuizOptionSelect?.(option.id)}
+              />
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -469,9 +534,6 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
 
         <View style={styles.progressIndicator}>
-          <Text style={styles.progressText}>
-            {currentIndex + 1} of {totalSlides}
-          </Text>
           <View style={styles.progressTrack}>
             <View
               style={[
@@ -582,9 +644,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 24,
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between', // push content to bottom area
     alignItems: 'center',
-    gap: 20,
+    gap: 12,
+  },
+  contentStack: {
+    width: '100%',
+    marginBottom: 2, // ~2px gap to button area
   },
   quizSlideCard: {
     gap: 8,
@@ -592,7 +658,7 @@ const styles = StyleSheet.create({
   },
   slideImage: {
     width: '100%',
-    height: 320,
+    height: 340,
     marginTop: 2,
     marginHorizontal: 2,
   },
@@ -754,7 +820,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    paddingTop: 10,
+    paddingTop: 2,
     paddingHorizontal: 24,
     backgroundColor: Colors.background,
     borderTopWidth: 1,
