@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Camera, Leaf, BookOpen } from 'lucide-react-native';
@@ -6,10 +6,39 @@ import { usePlantStore } from '@/hooks/plant-store';
 import { PlantIdentification } from '@/types/plant';
 import PlantCard from '@/components/PlantCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSimpleNotifications } from '@/hooks/use-simple-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
   const { identifications, userPlants, isLoading } = usePlantStore();
   const insets = useSafeAreaInsets();
+  const { requestPermissions, hasPermission } = useSimpleNotifications();
+
+  // Request notification permissions for new users
+  useEffect(() => {
+    const requestNotificationPermissions = async () => {
+      try {
+        // Check if we've already requested permissions
+        const hasRequested = await AsyncStorage.getItem('notification_permission_requested');
+        
+        // Only request if:
+        // 1. We haven't requested before
+        // 2. User doesn't have permission
+        if (!hasRequested && !hasPermission) {
+          // Add a small delay to ensure the home screen is fully loaded
+          setTimeout(async () => {
+            await requestPermissions();
+            // Mark that we've requested permissions
+            await AsyncStorage.setItem('notification_permission_requested', 'true');
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Failed to request notification permissions:', error);
+      }
+    };
+
+    requestNotificationPermissions();
+  }, [hasPermission, requestPermissions]);
 
   const recentIdentifications: PlantIdentification[] = identifications.slice(0, 10);
   const stats = {

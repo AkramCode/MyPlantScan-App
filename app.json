@@ -44,7 +44,9 @@
                                                      "CAMERA",
                                                      "RECORD_AUDIO",
                                                      "READ_EXTERNAL_STORAGE",
-                                                     "WRITE_EXTERNAL_STORAGE"
+                                                     "WRITE_EXTERNAL_STORAGE",
+                                                     "RECEIVE_BOOT_COMPLETED",
+                                                     "VIBRATE"
                                                  ],
                                  "intentFilters":  [
                                                        {
@@ -131,6 +133,14 @@
                                          "android":  {
                                                          "edgeToEdgeEnabled":  true
                                                      }
+                                     }
+                                 ],
+                                 [
+                                     "expo-notifications",
+                                     {
+                                         "icon":  "./assets/images/icon.png",
+                                         "color":  "#10B981",
+                                         "defaultChannel":  "default"
                                      }
                                  ]
                              ],

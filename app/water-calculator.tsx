@@ -21,6 +21,7 @@ import { router, Stack } from 'expo-router';
 
 import { trackEvent } from '@/lib/analytics';
 import { useSettings } from '@/providers/settings-provider';
+import { useSimpleNotifications } from '@/hooks/use-simple-notifications';
 
 type PlantType = 'succulent' | 'tropical' | 'flowering' | 'foliage' | 'herb' | 'fern';
 const toCelsius = (fahrenheit: number) => (fahrenheit - 32) * 5 / 9;
@@ -44,9 +45,10 @@ interface WateringResult {
 export default function WaterCalculatorScreen() {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
+  const { scheduleWaterReminder, hasPermission } = useSimpleNotifications();
   const measurementUnit = settings.measurementUnit;
-  const remindersEnabled = settings.wateringReminders;
-  const pushEnabled = settings.pushNotifications;
+  const remindersEnabled = settings.wateringReminders && hasPermission;
+  const pushEnabled = settings.pushNotifications && hasPermission;
   const [plantType, setPlantType] = useState<PlantType>('foliage');
   const [potSize, setPotSize] = useState<PotSize>('medium');
   const [season, setSeason] = useState<Season>('spring');
@@ -399,7 +401,7 @@ export default function WaterCalculatorScreen() {
     });
   };
 
-  const handleSaveSchedule = () => {
+  const handleSaveSchedule = async () => {
     if (!result) {
       return;
     }
@@ -416,19 +418,39 @@ export default function WaterCalculatorScreen() {
       return;
     }
 
-    const reminderMessage = pushEnabled
-      ? `Your watering schedule has been saved! We'll remind you every ${result.frequency} days with ${result.amount}.`
-      : `Your watering schedule has been saved for reference. Push notifications are disabled, so check back every ${result.frequency} days for ${result.amount}.`
-      ;
+    try {
+      // Generate a unique schedule ID
+      const scheduleId = `schedule_${Date.now()}`;
+      const plantName = `${plantType.charAt(0).toUpperCase() + plantType.slice(1)} Plant`;
+      
+      // Schedule the notification
+      const notificationId = await scheduleWaterReminder(
+        plantName,
+        result.frequency
+      );
 
-    Alert.alert('Schedule Saved', reminderMessage, [{ text: 'OK' }]);
-    trackEvent('water_calculator.schedule_saved', {
-      measurementUnit,
-      frequency: result.frequency,
-      amount: result.amount,
-      remindersEnabled,
-      pushEnabled,
-    });
+      const reminderMessage = pushEnabled && notificationId
+        ? `Your watering schedule has been saved! We'll remind you every ${result.frequency} days with ${result.amount}.`
+        : `Your watering schedule has been saved for reference. Push notifications are disabled, so check back every ${result.frequency} days for ${result.amount}.`;
+
+      Alert.alert('Schedule Saved', reminderMessage, [{ text: 'OK' }]);
+      
+      trackEvent('water_calculator.schedule_saved', {
+        measurementUnit,
+        frequency: result.frequency,
+        amount: result.amount,
+        remindersEnabled,
+        pushEnabled,
+        notificationScheduled: !!notificationId,
+      });
+    } catch (error) {
+      console.error('Failed to save watering schedule:', error);
+      Alert.alert(
+        'Error',
+        'Failed to save your watering schedule. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const renderSelector = <T extends string>(

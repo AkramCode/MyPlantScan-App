@@ -20,21 +20,17 @@ import {
   Bell,
   CalendarDays,
   ChevronRight,
-  HelpCircle,
-  Info,
-  LogIn,
-  LogOut,
   Mail,
   MoonStar,
   Ruler,
   ShieldCheck,
-  SlidersHorizontal,
 } from 'lucide-react-native';
 import Constants from 'expo-constants';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/providers/auth-provider';
 // onboarding test controls removed for production
 import { MeasurementUnit, ThemePreference, useSettings } from '@/providers/settings-provider';
+import { useSimpleNotifications } from '@/hooks/use-simple-notifications';
 
 const measurementLabels: Record<MeasurementUnit, string> = {
   metric: 'Metric (Celsius, ml)',
@@ -47,7 +43,6 @@ const themeLabels: Record<ThemePreference, string> = {
   dark: 'Dark',
 };
 
-const privacyPolicyUrl = 'https://myplantscan.com/privacy';
 const supportEmail = 'support@myplantscan.com';
 
 
@@ -97,6 +92,14 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile, signOut } = useAuth();
   const { settings, updateSettings, resetSettings, isLoading, isSaving } = useSettings();
+  const { 
+    hasPermission, 
+    togglePushNotifications, 
+    toggleWateringReminders, 
+    toggleHealthInsights,
+    requestPermissions,
+    sendTestNotification 
+  } = useSimpleNotifications();
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -120,23 +123,36 @@ export default function SettingsScreen() {
     [settings.analyticsOptIn]
   );
 
-  const accountTitle = useMemo(
-    () => (user ? profile?.full_name || 'MyPlantScan gardener' : 'Guest mode'),
-    [profile?.full_name, user]
-  );
-
-  const accountSubtitle = useMemo(
-    () =>
-      user
-        ? user.email || 'Synced securely with MyPlantScan Cloud.'
-        : 'Sign in to sync your garden across devices.',
-    [user]
-  );
   const toggleMeasurementUnit = useCallback(() => {
     updateSettings({
       measurementUnit: settings.measurementUnit === 'metric' ? 'imperial' : 'metric',
     });
   }, [settings.measurementUnit, updateSettings]);
+
+  const handlePushNotificationsToggle = useCallback(async (value: boolean) => {
+    const success = await togglePushNotifications(value);
+    if (success) {
+      updateSettings({ pushNotifications: value });
+    }
+  }, [togglePushNotifications, updateSettings]);
+
+  const handleWateringRemindersToggle = useCallback(async (value: boolean) => {
+    const success = await toggleWateringReminders(value);
+    if (success) {
+      updateSettings({ wateringReminders: value });
+    }
+  }, [toggleWateringReminders, updateSettings]);
+
+  const handleHealthInsightsToggle = useCallback(async (value: boolean) => {
+    const success = await toggleHealthInsights(value);
+    if (success) {
+      updateSettings({ healthInsights: value });
+    }
+  }, [toggleHealthInsights, updateSettings]);
+
+  const handleRequestPermissions = useCallback(async () => {
+    await requestPermissions();
+  }, [requestPermissions]);
 
   const cycleThemePreference = useCallback(() => {
     const order: ThemePreference[] = ['system', 'light', 'dark'];
@@ -145,22 +161,6 @@ export default function SettingsScreen() {
     updateSettings({ themePreference: next });
   }, [settings.themePreference, updateSettings]);
 
-  const handleResetPreferences = useCallback(() => {
-    Alert.alert(
-      'Reset preferences',
-      'This will restore notification, appearance, and privacy settings to their defaults.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            resetSettings();
-          },
-        },
-      ]
-    );
-  }, [resetSettings]);
 
   // restart onboarding removed
 
@@ -203,45 +203,7 @@ export default function SettingsScreen() {
     }
   }, [appVersion]);
 
-  const openExternal = useCallback(async (url: string) => {
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (!supported) {
-        Alert.alert('Unable to open link', 'Please visit ' + url + ' in your browser.');
-        return;
-      }
-      await Linking.openURL(url);
-    } catch (error) {
-      console.error('settings: open link error', error);
-      Alert.alert('Unable to open link', 'Please try again later.');
-    }
-  }, []);
 
-  const handleSignIn = useCallback(() => {
-    router.push('/(tabs)');
-  }, []);
-
-  const handleSignOut = useCallback(() => {
-    Alert.alert(
-      'Sign out',
-      'Are you sure you want to sign out of MyPlantScan on this device?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('settings: sign out error', error);
-              Alert.alert('Sign out failed', 'Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  }, [signOut]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -273,35 +235,6 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <View style={styles.card}>
-              <SettingRow
-                icon={<ShieldCheck size={20} color={Colors.primary} />}
-                title={accountTitle}
-                subtitle={accountSubtitle}
-                disabled
-                isLast={!user}
-              />
-              {user ? (
-                <SettingRow
-                  icon={<LogOut size={20} color={Colors.error} />}
-                  title='Sign out'
-                  subtitle='Remove account data from this device.'
-                  onPress={handleSignOut}
-                  isLast
-                />
-              ) : (
-                <SettingRow
-                  icon={<LogIn size={20} color={Colors.primary} />}
-                  title='Sign in or create account'
-                  subtitle='Back up your garden and health history.'
-                  onPress={handleSignIn}
-                  isLast
-                />
-              )}
-            </View>
-          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Notifications</Text>
@@ -312,15 +245,21 @@ export default function SettingsScreen() {
                 subtitle='Get alerts when identifications or health reports are ready.'
                 trailing={
                   <Switch
-                    value={settings.pushNotifications}
-                    onValueChange={value => updateSettings({ pushNotifications: value })}
+                    value={settings.pushNotifications && hasPermission}
+                    onValueChange={handlePushNotificationsToggle}
                     trackColor={{ false: Colors.gray300, true: Colors.primary }}
                     thumbColor={Colors.white}
                     ios_backgroundColor={Colors.gray300}
                     style={styles.switch}
                   />
                 }
-                onPress={() => updateSettings({ pushNotifications: !settings.pushNotifications })}
+                onPress={() => {
+                  if (!hasPermission) {
+                    handleRequestPermissions();
+                  } else {
+                    handlePushNotificationsToggle(!settings.pushNotifications);
+                  }
+                }}
               />
               <SettingRow
                 icon={<CalendarDays size={20} color={Colors.primary} />}
@@ -328,15 +267,21 @@ export default function SettingsScreen() {
                 subtitle='Plan gentle nudges based on your plant care schedule.'
                 trailing={
                   <Switch
-                    value={settings.wateringReminders}
-                    onValueChange={value => updateSettings({ wateringReminders: value })}
+                    value={settings.wateringReminders && hasPermission}
+                    onValueChange={handleWateringRemindersToggle}
                     trackColor={{ false: Colors.gray300, true: Colors.primary }}
                     thumbColor={Colors.white}
                     ios_backgroundColor={Colors.gray300}
                     style={styles.switch}
                   />
                 }
-                onPress={() => updateSettings({ wateringReminders: !settings.wateringReminders })}
+                onPress={() => {
+                  if (!hasPermission) {
+                    handleRequestPermissions();
+                  } else {
+                    handleWateringRemindersToggle(!settings.wateringReminders);
+                  }
+                }}
               />
               <SettingRow
                 icon={<Activity size={20} color={Colors.primary} />}
@@ -344,15 +289,21 @@ export default function SettingsScreen() {
                 subtitle='Receive weekly summaries about plant health trends.'
                 trailing={
                   <Switch
-                    value={settings.healthInsights}
-                    onValueChange={value => updateSettings({ healthInsights: value })}
+                    value={settings.healthInsights && hasPermission}
+                    onValueChange={handleHealthInsightsToggle}
                     trackColor={{ false: Colors.gray300, true: Colors.primary }}
                     thumbColor={Colors.white}
                     ios_backgroundColor={Colors.gray300}
                     style={styles.switch}
                   />
                 }
-                onPress={() => updateSettings({ healthInsights: !settings.healthInsights })}
+                onPress={() => {
+                  if (!hasPermission) {
+                    handleRequestPermissions();
+                  } else {
+                    handleHealthInsightsToggle(!settings.healthInsights);
+                  }
+                }}
                 isLast
               />
             </View>
@@ -393,47 +344,25 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data & security</Text>
-            <View style={styles.card}>
-              <SettingRow
-                icon={<SlidersHorizontal size={20} color={Colors.primary} />}
-                title='Restore default preferences'
-                subtitle='Reset notifications, theme, and privacy settings.'
-                onPress={handleResetPreferences}
-                isLast
-              />
-            </View>
-          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Support</Text>
             <View style={styles.card}>
-              <SettingRow
-                icon={<HelpCircle size={20} color={Colors.primary} />}
-                title='Help centre'
-                subtitle='Guides, FAQs, and troubleshooting tips.'
-                onPress={() => router.push('/help')}
-              />
               <SettingRow
                 icon={<Mail size={20} color={Colors.primary} />}
                 title='Contact support'
                 subtitle='Email our plant experts for assistance.'
                 onPress={handleSupportEmail}
               />
-              <SettingRow
-                icon={<Info size={20} color={Colors.primary} />}
-                title='About MyPlantScan'
-                subtitle='Our mission and technology.'
-                onPress={() => router.push('/about')}
-              />
-              <SettingRow
-                icon={<ShieldCheck size={20} color={Colors.primary} />}
-                title='Privacy policy'
-                subtitle='Understand how we protect your data.'
-                onPress={() => openExternal(privacyPolicyUrl)}
-                isLast
-              />
+              {__DEV__ && (
+                <SettingRow
+                  icon={<Bell size={20} color={Colors.primary} />}
+                  title='Test notification'
+                  subtitle='Send a test notification to verify setup.'
+                  onPress={sendTestNotification}
+                  isLast
+                />
+              )}
             </View>
           </View>
 
