@@ -23,8 +23,9 @@ export default function OnboardingWelcome() {
           resizeMode='contain'
           accessibilityIgnoresInvertColors
         />
-        <Text style={styles.title}>Welcome to MyPlantScan</Text>
-        <Text style={styles.subtitle}>Identify, track, and care for your plants with confidence.</Text>
+        <Text style={styles.title}>🌿 Welcome to MyPlantScan</Text>
+        <Text style={styles.subtitle}>Your AI-Powered Plant Care Companion</Text>
+        <Text style={styles.description}>Discover, identify, and nurture your green friends with confidence. Let's grow together! 🌱</Text>
       </View>
 
       <View style={styles.actions}>
@@ -69,6 +70,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   subtitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  description: {
     fontSize: 16,
     lineHeight: 24,
     color: Colors.textSecondary,

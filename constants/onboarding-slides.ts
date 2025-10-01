@@ -12,92 +12,137 @@ export type IconName =
   | 'CheckCircle2'
   | 'Leaf';
 
+export type QuizOption = {
+  id: string;
+  text: string;
+  emoji?: string;
+};
+
 export type OnboardingSlide = {
   key: string;
   title: string;
+  subtitle?: string;
   description: string;
   icon: IconName;
-  variant?: 'welcome';
+  variant?: 'welcome' | 'quiz';
   accent: string;
   requiresPermission?: 'camera' | 'library';
   permissionTitle?: string;
   permissionDescription?: string;
+  quizOptions?: QuizOption[];
+  quizQuestion?: string;
 };
 
 export const slides: OnboardingSlide[] = [
   {
     key: 'confidence',
-    title: 'Grow With Confidence',
-    description: 'MyPlantScan becomes your AI co-pilot for healthier plants and effortless routines.',
+    title: 'Your Plant Journey Starts Here',
+    subtitle: 'Discover. Nurture. Thrive.',
+    description: 'AI-powered tools to help you grow with confidence.',
     icon: 'Leaf',
     accent: Colors.primary,
   },
   {
     key: 'identify',
-    title: 'Point. Scan. Know.',
-    description: 'Instant plant identification built on industry-grade recognition tuned for home collections.',
+    title: 'Instant Plant Recognition',
+    subtitle: 'Point, Snap, Know',
+    description: 'Identify plants in seconds with precise AI recognition.',
     icon: 'Scan',
     accent: Colors.primary,
   },
   {
+    key: 'experience',
+    title: 'Your Experience Level',
+    description: 'Help us personalize your care tips.',
+    icon: 'Leaf',
+    accent: Colors.primary,
+    variant: 'quiz',
+    quizQuestion: 'How would you describe yourself?',
+    quizOptions: [
+      { id: 'beginner', text: 'Just starting out', emoji: '' },
+      { id: 'intermediate', text: 'Some experience', emoji: '' },
+      { id: 'expert', text: 'Plant expert', emoji: '' }
+    ]
+  },
+  {
     key: 'health',
-    title: 'Pro Diagnostics In Seconds',
-    description: 'Surface early warnings for pests, disease, and stress so you can act before leaves decline.',
+    title: 'AI Health Diagnostics',
+    subtitle: 'Spot problems before they spread',
+    description: 'Instant health checks and early issue detection.',
     icon: 'HeartPulse',
     accent: Colors.primary,
   },
   {
+    key: 'goals',
+    title: 'Your Main Goal',
+    description: 'What matters most to you?',
+    icon: 'Sparkles',
+    accent: Colors.primary,
+    variant: 'quiz',
+    quizQuestion: 'What is your main focus?',
+    quizOptions: [
+      { id: 'aesthetic', text: 'Beautiful decor', emoji: '' },
+      { id: 'wellness', text: 'Health & wellness', emoji: '' },
+      { id: 'hobby', text: 'Gardening hobby', emoji: '' }
+    ]
+  },
+  {
     key: 'camera-permission',
     title: 'Enable Camera Access',
-    description: 'Allow camera access so we can capture every detail and deliver real-time identification.',
+    subtitle: 'Real-time plant analysis',
+    description: 'Grant access to scan plants instantly.',
     icon: 'Camera',
     accent: Colors.primary,
     requiresPermission: 'camera',
-    permissionTitle: 'Camera Access Required',
-    permissionDescription: 'Grant camera access to scan plants instantly and unlock live analysis.',
+    permissionTitle: 'Camera permission required',
+    permissionDescription: 'Enable camera to scan and identify plants. Your photos stay private.',
   },
   {
     key: 'library-permission',
-    title: 'Import From Your Gallery',
-    description: 'Share photo library access to analyse saved shots, compare progress, and build history.',
+    title: 'Access Your Photo Library',
+    subtitle: 'Import and analyze photos',
+    description: 'Allow access to import existing plant photos.',
     icon: 'Image',
     accent: Colors.primary,
     requiresPermission: 'library',
-    permissionTitle: 'Photo Library Access',
-    permissionDescription: 'Allow reading your gallery so you can import past plant photos and export reports.',
+    permissionTitle: 'Photo library access',
+    permissionDescription: 'Allow access to analyze and track your plant photos.',
   },
   {
     key: 'garden',
-    title: 'Build A Living Catalog',
-    description: 'Organise every plant with tags, notes, and growth milestones in a single clean workspace.',
+    title: 'Your Digital Plant Library',
+    subtitle: 'Organize and track everything',
+    description: 'Catalog plants with notes and milestones.',
     icon: 'Library',
     accent: Colors.primary,
   },
   {
-    key: 'care',
-    title: 'Care That Adapts',
-    description: 'Receive seasonal schedules and actionable reminders calibrated to your plant habits.',
+    key: 'notifications',
+    title: 'Reminder Frequency',
+    description: 'Choose your preferred schedule.',
     icon: 'CalendarCheck',
     accent: Colors.primary,
+    variant: 'quiz',
+    quizQuestion: 'How often should we remind you?',
+    quizOptions: [
+      { id: 'daily', text: 'Daily reminders', emoji: '' },
+      { id: 'weekly', text: 'Weekly reminders', emoji: '' },
+      { id: 'minimal', text: 'Only when needed', emoji: '' }
+    ]
   },
   {
     key: 'sync',
-    title: 'Everything Backed Up',
-    description: 'Your garden stays synchronised and securely stored so data is ready on every device.',
+    title: 'Secure Cloud Backup',
+    subtitle: 'Never lose your data',
+    description: 'Your garden is synced and backed up across devices.',
     icon: 'Cloud',
     accent: Colors.primary,
   },
   {
-    key: 'features',
-    title: 'Tools For Every Grower',
-    description: 'Use the light meter, watering insights, health reports, and expert guides built for clarity.',
-    icon: 'Sparkles',
-    accent: Colors.primary,
-  },
-  {
     key: 'ready',
-    title: 'Start Scanning',
-    description: 'Time to capture your first plant and let data-driven care remove the guesswork.',
+    title: "You're All Set",
+    subtitle: 'Start your plant journey',
+    description: 'Scan your first plant to begin.',
     icon: 'CheckCircle2',
     accent: Colors.primary,
   },

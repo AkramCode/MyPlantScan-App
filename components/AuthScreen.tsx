@@ -12,7 +12,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { Eye, EyeOff, Mail, Lock, User, Leaf } from 'lucide-react-native';
+import { Eye, EyeOff, Mail, Lock, User, Leaf, X } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { ensureGuestToken } from '@/lib/guest-token';
 import { useAuth } from '@/providers/auth-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,10 +22,11 @@ type AuthMode = 'signin' | 'signup' | 'forgot';
 
 interface AuthScreenProps {
   onAuthSuccess?: () => void;
+  mode?: 'signin' | 'signup' | 'forgot';
 }
 
-export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
-  const [mode, setMode] = useState<AuthMode>('signin');
+export default function AuthScreen({ onAuthSuccess, mode: initialMode }: AuthScreenProps) {
+  const [mode, setMode] = useState<AuthMode>((initialMode as AuthMode) || 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -131,6 +134,17 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         >
           {/* Header */}
           <View style={styles.header}>
+            <TouchableOpacity
+              style={[styles.closeButton, { top: insets.top ? 0 : 0 }]}
+              onPress={async () => {
+                await ensureGuestToken();
+                router.replace('/(tabs)');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Close and continue as guest"
+            >
+              <X size={22} color="#6B7280" />
+            </TouchableOpacity>
             <View style={styles.logoContainer}>
               <Leaf size={40} color="#22C55E" />
             </View>
@@ -296,6 +310,14 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 16,
+    top: -8,
+    padding: 8,
+    zIndex: 10,
+    alignSelf: 'flex-end',
   },
   logoContainer: {
     width: 80,
