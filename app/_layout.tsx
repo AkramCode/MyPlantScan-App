@@ -8,11 +8,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PlantStoreProvider } from "@/hooks/plant-store";
 import { AuthProvider } from "@/providers/auth-provider";
 import { SettingsProvider } from "@/providers/settings-provider";
-import { clearOnboardingFlag, getHasCompletedOnboarding, getForceOnboardingEnabled } from "@/lib/onboarding-storage";
+import { getHasCompletedOnboarding } from "@/lib/onboarding-storage";
 import ErrorBoundary from "@/components/ErrorBoundary";
-
-const onboardingFlag = (process.env.EXPO_PUBLIC_FORCE_ONBOARDING ?? '').toLowerCase();
-const FORCE_ONBOARDING_ENABLED = onboardingFlag === 'true' || (__DEV__ && onboardingFlag !== 'false');
 
 void SplashScreen.preventAutoHideAsync().catch(() => null);
 
@@ -99,14 +96,8 @@ export default function RootLayout() {
   useEffect(() => {
     const prepare = async () => {
       try {
-        const forceFromStorage = await getForceOnboardingEnabled();
-        if (FORCE_ONBOARDING_ENABLED || forceFromStorage) {
-          await clearOnboardingFlag();
-          setInitialRoute("onboarding/welcome");
-        } else {
-          const hasCompleted = await getHasCompletedOnboarding();
-          setInitialRoute(hasCompleted ? "(tabs)" : "onboarding/welcome");
-        }
+        const hasCompleted = await getHasCompletedOnboarding();
+        setInitialRoute(hasCompleted ? "(tabs)" : "onboarding/welcome");
       } catch (error) {
         console.error('RootLayout: onboarding check failed', error);
         setInitialRoute("onboarding/index");

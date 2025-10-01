@@ -26,7 +26,6 @@ import {
   LogOut,
   Mail,
   MoonStar,
-  RefreshCcw,
   Ruler,
   ShieldCheck,
   SlidersHorizontal,
@@ -34,7 +33,7 @@ import {
 import Constants from 'expo-constants';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/providers/auth-provider';
-import { clearOnboardingFlag, getForceOnboardingEnabled, setForceOnboardingEnabled } from '@/lib/onboarding-storage';
+// onboarding test controls removed for production
 import { MeasurementUnit, ThemePreference, useSettings } from '@/providers/settings-provider';
 
 const measurementLabels: Record<MeasurementUnit, string> = {
@@ -101,19 +100,7 @@ export default function SettingsScreen() {
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
-  const [forceOnboarding, setForceOnboarding] = React.useState(false);
-  React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const enabled = await getForceOnboardingEnabled();
-        if (mounted) setForceOnboarding(enabled);
-      } catch (_e) {
-        // noop
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+  // test toggles removed for production
 
   const measurementLabel = useMemo(
     () => measurementLabels[settings.measurementUnit],
@@ -175,37 +162,11 @@ export default function SettingsScreen() {
     );
   }, [resetSettings]);
 
-  const resetOnboarding = useCallback(async () => {
-    try {
-      await clearOnboardingFlag();
-      router.replace('/onboarding/welcome');
-    } catch (error) {
-      console.error('settings: reset onboarding error', error);
-      Alert.alert('Reset failed', 'Please try again later.');
-    }
-  }, []);
+  // restart onboarding removed
 
-  const toggleForceOnboarding = useCallback(async () => {
-    try {
-      const next = !forceOnboarding;
-      setForceOnboarding(next);
-      await setForceOnboardingEnabled(next);
-    } catch (error) {
-      console.error('settings: toggle force onboarding error', error);
-      Alert.alert('Update failed', 'Please try again later.');
-    }
-  }, [forceOnboarding]);
+  // force onboarding toggle removed for production
 
-  const handleResetOnboarding = useCallback(() => {
-    Alert.alert(
-      'Restart onboarding?',
-      'We will reset your progress and relaunch the welcome tour now.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Restart', onPress: () => { void resetOnboarding(); } },
-      ]
-    );
-  }, [resetOnboarding]);
+  // restart onboarding action removed for production
 
   const handleSupportEmail = useCallback(async () => {
     const subject = encodeURIComponent('MyPlantScan support request');
@@ -435,28 +396,6 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Data & security</Text>
             <View style={styles.card}>
-              <SettingRow
-                icon={<RefreshCcw size={20} color={Colors.primary} />}
-                title='Start onboarding now'
-                subtitle='Immediately relaunch the welcome experience.'
-                onPress={handleResetOnboarding}
-              />
-              <SettingRow
-                icon={<SlidersHorizontal size={20} color={Colors.primary} />}
-                title='Always show onboarding'
-                subtitle='Force the welcome tour to appear on every launch.'
-                trailing={
-                  <Switch
-                    value={forceOnboarding}
-                    onValueChange={_ => { void toggleForceOnboarding(); }}
-                    trackColor={{ false: Colors.gray300, true: Colors.primary }}
-                    thumbColor={Colors.white}
-                    ios_backgroundColor={Colors.gray300}
-                    style={styles.switch}
-                  />
-                }
-                onPress={() => { void toggleForceOnboarding(); }}
-              />
               <SettingRow
                 icon={<SlidersHorizontal size={20} color={Colors.primary} />}
                 title='Restore default preferences'

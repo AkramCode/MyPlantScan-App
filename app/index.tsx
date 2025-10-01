@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { router } from 'expo-router';
-import { clearOnboardingFlag, getForceOnboardingEnabled, getHasCompletedOnboarding } from '@/lib/onboarding-storage';
+import { getHasCompletedOnboarding } from '@/lib/onboarding-storage';
 
 export default function LaunchGate() {
   const [booted, setBooted] = useState(false);
@@ -10,17 +10,7 @@ export default function LaunchGate() {
     let mounted = true;
     (async () => {
       try {
-        const [force, completed] = await Promise.all([
-          getForceOnboardingEnabled(),
-          getHasCompletedOnboarding(),
-        ]);
-
-        if (force) {
-          await clearOnboardingFlag();
-          if (mounted) router.replace('/onboarding/welcome');
-          return;
-        }
-
+        const completed = await getHasCompletedOnboarding();
         if (!completed) {
           if (mounted) router.replace('/onboarding/welcome');
           return;
