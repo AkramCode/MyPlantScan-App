@@ -127,6 +127,19 @@ export default function AuthScreen({ onAuthSuccess, mode: initialMode }: AuthScr
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={[styles.background, { paddingTop: insets.top }]}>
+        {/* Close Button - positioned relative to screen */}
+        <TouchableOpacity
+          style={[styles.closeButton, { top: insets.top + 16 }]}
+          onPress={async () => {
+            await ensureGuestToken();
+            router.replace('/(tabs)');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Close and continue as guest"
+        >
+          <X size={22} color="#9CA3AF" />
+        </TouchableOpacity>
+        
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -134,17 +147,6 @@ export default function AuthScreen({ onAuthSuccess, mode: initialMode }: AuthScr
         >
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity
-              style={[styles.closeButton, { top: insets.top ? 0 : 0 }]}
-              onPress={async () => {
-                await ensureGuestToken();
-                router.replace('/(tabs)');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Close and continue as guest"
-            >
-              <X size={22} color="#6B7280" />
-            </TouchableOpacity>
             <View style={styles.logoContainer}>
               <Leaf size={40} color="#22C55E" />
             </View>
@@ -314,10 +316,8 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     right: 16,
-    top: -8,
     padding: 8,
     zIndex: 10,
-    alignSelf: 'flex-end',
   },
   logoContainer: {
     width: 80,
