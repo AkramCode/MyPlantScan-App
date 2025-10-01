@@ -23,11 +23,10 @@ import {
   Mail,
   MoonStar,
   Ruler,
-  ShieldCheck,
+  
 } from 'lucide-react-native';
 import Constants from 'expo-constants';
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/providers/auth-provider';
 // onboarding test controls removed for production
 import { MeasurementUnit, ThemePreference, useSettings } from '@/providers/settings-provider';
 import { useSimpleNotifications } from '@/hooks/use-simple-notifications';
@@ -90,8 +89,8 @@ const SettingRow: React.FC<SettingRowProps> = ({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { user, profile, signOut } = useAuth();
-  const { settings, updateSettings, resetSettings, isLoading, isSaving } = useSettings();
+  // user/profile/signOut and resetSettings intentionally omitted when unused
+  const { settings, updateSettings, isLoading, isSaving } = useSettings();
   const { 
     hasPermission, 
     togglePushNotifications, 

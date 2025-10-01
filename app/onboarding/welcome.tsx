@@ -3,7 +3,6 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
-import { markOnboardingComplete } from '@/lib/onboarding-storage';
 
 export default function OnboardingWelcome() {
   const insets = useSafeAreaInsets();

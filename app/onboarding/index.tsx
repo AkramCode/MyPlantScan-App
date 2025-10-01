@@ -11,24 +11,13 @@ import {
   Image,
   useWindowDimensions,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import type { LucideIcon } from 'lucide-react-native';
 import {
   ArrowRight,
-  CalendarCheck,
-  Camera as CameraIcon,
   CheckCircle2,
-  Cloud,
-  HeartPulse,
-  Image as ImageIcon,
-  Leaf,
-  Library,
-  Scan,
-  Sparkles,
   ArrowLeft,
   Shield,
   Lock,
@@ -38,21 +27,9 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { Colors } from '@/constants/colors';
 import { markOnboardingComplete } from '@/lib/onboarding-storage';
-import type { IconName, OnboardingSlide, QuizOption } from '@/constants/onboarding-slides';
+import type { OnboardingSlide, QuizOption } from '@/constants/onboarding-slides';
 import { slides } from '@/constants/onboarding-slides';
 
-const iconMap: Record<IconName, LucideIcon> = {
-  Sparkles,
-  Scan,
-  HeartPulse,
-  Camera: CameraIcon,
-  Image: ImageIcon,
-  Leaf,
-  Library,
-  CalendarCheck,
-  Cloud,
-  CheckCircle2,
-};
 
 // Preload artwork 1..10 from assets/onboarding
 const slideImages = [
@@ -138,7 +115,7 @@ const OnboardingCard: React.FC<OnboardingCardProps> = ({
   selectedQuizOption,
   onQuizOptionSelect,
 }) => {
-  const Icon = iconMap[item.icon];
+  // icon not currently rendered within the card; keep iconMap for future use
   const showPermissionCta = Boolean(item.requiresPermission);
   const isQuizSlide = item.variant === 'quiz';
 

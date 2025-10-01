@@ -9,6 +9,9 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    // Newer API fields
+    shouldShowBanner: true,
+    shouldShowList: false,
   }),
 });
 
@@ -20,13 +23,7 @@ export interface NotificationData {
   [key: string]: any;
 }
 
-export interface ScheduledNotification {
-  id: string;
-  title: string;
-  body: string;
-  data: NotificationData;
-  trigger: Notifications.NotificationTriggerInput;
-}
+// scheduleNotificationAsync expects { content, trigger }
 
 class NotificationService {
   private pushToken: string | null = null;
@@ -169,12 +166,13 @@ class NotificationService {
     await this.cancelWaterReminder(plantId, scheduleId);
 
     const trigger: Notifications.NotificationTriggerInput = {
+      // time interval trigger
+      type: 'timeInterval',
       seconds: frequencyDays * 24 * 60 * 60, // Convert days to seconds
       repeats: true,
-    };
+    } as any;
 
-    const notification: ScheduledNotification = {
-      id: notificationId,
+    const content = {
       title: '🌱 Time to water your plant!',
       body: `${plantName} needs watering. Check your care schedule for details.`,
       data: {
@@ -183,10 +181,9 @@ class NotificationService {
         plantName,
         scheduleId,
       },
-      trigger,
     };
 
-    await Notifications.scheduleNotificationAsync(notification);
+    await Notifications.scheduleNotificationAsync({ content, trigger } as any);
     console.log(`Scheduled water reminder for ${plantName} every ${frequencyDays} days`);
     
     return notificationId;
@@ -206,11 +203,11 @@ class NotificationService {
     const notificationId = `health_${plantId}_${Date.now()}`;
     
     const trigger: Notifications.NotificationTriggerInput = {
+      type: 'date',
       date: scheduledDate,
-    };
+    } as any;
 
-    const notification: ScheduledNotification = {
-      id: notificationId,
+    const content = {
       title: '📊 Health insights ready!',
       body: `Your weekly health summary for ${plantName} is available.`,
       data: {
@@ -218,10 +215,9 @@ class NotificationService {
         plantId,
         plantName,
       },
-      trigger,
     };
 
-    await Notifications.scheduleNotificationAsync(notification);
+    await Notifications.scheduleNotificationAsync({ content, trigger } as any);
     console.log(`Scheduled health insight for ${plantName} on ${scheduledDate.toISOString()}`);
     
     return notificationId;
@@ -231,20 +227,19 @@ class NotificationService {
     const notificationId = `health_digest_${Date.now()}`;
     
     const trigger: Notifications.NotificationTriggerInput = {
+      type: 'date',
       date: scheduledDate,
-    };
+    } as any;
 
-    const notification: ScheduledNotification = {
-      id: notificationId,
+    const content = {
       title: '📈 Weekly plant health digest',
       body: 'Your weekly plant health summary is ready. Check out the latest insights!',
       data: {
         type: 'health_insight',
       },
-      trigger,
     };
 
-    await Notifications.scheduleNotificationAsync(notification);
+    await Notifications.scheduleNotificationAsync({ content, trigger } as any);
     console.log(`Scheduled weekly health digest for ${scheduledDate.toISOString()}`);
     
     return notificationId;
@@ -266,8 +261,8 @@ class NotificationService {
         body: 'This is a test notification from MyPlantScan',
         data: { type: 'general' },
       },
-      trigger: { seconds: 2 },
-    });
+      trigger: { type: 'timeInterval', seconds: 2 } as any,
+    } as any);
   }
 
   // Utility method to check if notifications are enabled

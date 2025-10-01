@@ -1,9 +1,8 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import AuthScreen from '@/components/AuthScreen';
 import { Colors } from '@/constants/colors';
-import { useLocalSearchParams } from 'expo-router';
 
 export default function AuthIndex() {
   const params = useLocalSearchParams<{ mode?: string }>();

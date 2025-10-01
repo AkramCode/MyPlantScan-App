@@ -99,11 +99,8 @@ class SimpleNotificationService {
         data: { type: 'water_reminder', plantName },
         sound: 'default',
       },
-      trigger: {
-        seconds: frequencyDays * 24 * 60 * 60, // Convert days to seconds
-        repeats: true,
-      },
-    });
+      trigger: { type: 'timeInterval', seconds: frequencyDays * 24 * 60 * 60, repeats: true } as any,
+    } as any);
     
     console.log(`💧 Scheduled water reminder for ${plantName} every ${frequencyDays} days`);
     return notificationId;
@@ -123,10 +120,8 @@ class SimpleNotificationService {
         data: { type: 'health_insight', plantName },
         sound: 'default',
       },
-      trigger: {
-        seconds: daysFromNow * 24 * 60 * 60,
-      },
-    });
+      trigger: { type: 'timeInterval', seconds: daysFromNow * 24 * 60 * 60 } as any,
+    } as any);
     
     console.log(`📊 Scheduled health insight for ${plantName} in ${daysFromNow} days`);
     return notificationId;
@@ -141,8 +136,8 @@ class SimpleNotificationService {
         data: { type: 'general' },
         sound: 'default',
       },
-      trigger: { seconds: 2 },
-    });
+      trigger: { type: 'timeInterval', seconds: 2 } as any,
+    } as any);
     console.log('🧪 Test notification scheduled (2 seconds)');
   }
 

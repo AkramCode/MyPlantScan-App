@@ -419,9 +419,7 @@ export default function WaterCalculatorScreen() {
     }
 
     try {
-      // Generate a unique schedule ID
-      const scheduleId = `schedule_${Date.now()}`;
-      const plantName = `${plantType.charAt(0).toUpperCase() + plantType.slice(1)} Plant`;
+  const plantName = `${plantType.charAt(0).toUpperCase() + plantType.slice(1)} Plant`;
       
       // Schedule the notification
       const notificationId = await scheduleWaterReminder(
