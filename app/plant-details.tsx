@@ -167,8 +167,17 @@ export default function PlantDetailsScreen() {
                 isInGarden && styles.addToGardenButtonDisabled,
                 isAddingToGarden && styles.addToGardenButtonDisabled
               ]}
-              onPress={handleAddToGarden}
-              disabled={isInGarden || isAddingToGarden}
+              onPress={() => {
+                // If already in garden, open garden screen. If currently adding, do nothing.
+                if (isAddingToGarden) return;
+                if (isInGarden) {
+                  router.push('/(tabs)/garden');
+                } else {
+                  handleAddToGarden();
+                }
+              }}
+              // Only disable while an add operation is in progress. Keep clickable when 'In Garden'.
+              disabled={isAddingToGarden}
             >
               {isInGarden ? (
                 <>

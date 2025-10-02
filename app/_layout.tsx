@@ -95,6 +95,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     const prepare = async () => {
+      const start = Date.now();
+      const MINIMUM_SPLASH_MS = 3000; // keep splash visible for at least 3 seconds
+
       try {
         const hasCompleted = await getHasCompletedOnboarding();
         setInitialRoute(hasCompleted ? "(tabs)" : "onboarding/welcome");
@@ -102,11 +105,21 @@ export default function RootLayout() {
         console.error('RootLayout: onboarding check failed', error);
         setInitialRoute("onboarding/index");
       } finally {
+        // Ensure the splash stays visible for at least MINIMUM_SPLASH_MS
+        const elapsed = Date.now() - start;
+        const remaining = Math.max(0, MINIMUM_SPLASH_MS - elapsed);
+
         try {
+          if (remaining > 0) {
+            // wait the remaining time but don't block the JS thread heavily
+            await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+          }
+
           await SplashScreen.hideAsync();
         } catch (error) {
           console.error('RootLayout: hide splash failed', error);
         }
+
         setIsReady(true);
       }
     };

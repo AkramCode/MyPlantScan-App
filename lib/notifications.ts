@@ -28,6 +28,9 @@ export interface NotificationData {
 class NotificationService {
   private pushToken: string | null = null;
   private isInitialized = false;
+  // Prevent multiple concurrent permission requests which can trigger
+  // duplicate system dialogs and confusing outcomes in the UI.
+  private _permissionRequest: Promise<boolean> | null = null;
 
   async initialize(): Promise<boolean> {
     if (this.isInitialized) {
@@ -41,16 +44,10 @@ class NotificationService {
         return false;
       }
 
-      // Request permissions
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
+      // Request permissions (use centralized deduped method)
+      const granted = await this.requestPermissions();
 
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
+      if (!granted) {
         console.warn('Failed to get push token for push notification!');
         return false;
       }
@@ -273,8 +270,31 @@ class NotificationService {
 
   // Method to request permissions (useful for settings screen)
   async requestPermissions(): Promise<boolean> {
-    const { status } = await Notifications.requestPermissionsAsync();
-    return status === 'granted';
+    if (this._permissionRequest) {
+      return this._permissionRequest;
+    }
+
+    this._permissionRequest = (async () => {
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        if (existingStatus === 'granted') {
+          console.log('🔔 Notification permissions already granted');
+          return true;
+        }
+
+        const { status } = await Notifications.requestPermissionsAsync();
+        const granted = status === 'granted';
+        console.log(granted ? '🔔 Notification permissions granted' : '🔕 Notification permissions denied');
+        return granted;
+      } catch (error) {
+        console.error('Error while requesting notification permissions:', error);
+        return false;
+      } finally {
+        this._permissionRequest = null;
+      }
+    })();
+
+    return this._permissionRequest;
   }
 }
 
