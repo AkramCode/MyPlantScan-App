@@ -42,11 +42,7 @@ export const useSimpleNotifications = () => {
       setHasPermission(granted);
       
       if (granted) {
-        Alert.alert(
-          'Notifications Enabled',
-          'You\'ll now receive helpful reminders about your plants!',
-          [{ text: 'OK' }]
-        );
+        // Permission granted — no modal success popup (keep UX non-disruptive)
       } else {
         Alert.alert(
           'Permission Denied',

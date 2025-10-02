@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Alert, AppState, AppStateStatus } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Alert, AppState, AppStateStatus, Linking } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions, CameraMountError } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, Stack, useLocalSearchParams } from 'expo-router';
@@ -134,6 +134,30 @@ export default function CameraScreen() {
     if (!mountedRef.current) return;
     
     try {
+      // Ensure we have library permission before opening picker
+      const { status: existingStatus } = await ImagePicker.getMediaLibraryPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        // Permission denied - instruct user to enable from settings
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            'Photo access required',
+            'To upload images from your library, enable photo access in device settings.',
+            [
+              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+              { text: 'Cancel', style: 'cancel' },
+            ]
+          );
+        }
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,

@@ -104,7 +104,6 @@ export default function PlantDetailsScreen() {
     setIsAddingToGarden(true);
     try {
       await addToGarden(identification, 'Indoor', '');
-      showAlert('Success', 'Plant added to your garden!');
     } catch {
       showAlert('Error', 'Failed to add plant to garden');
     } finally {

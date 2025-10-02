@@ -415,10 +415,8 @@ export default function OnboardingScreen() {
   }, [isCompleting]);
 
   const handleNext = useCallback(() => {
-    if (requiredPermission && !currentPermissionGranted) {
-      Alert.alert('Permission required', 'Please grant the required permission to continue.', [{ text: 'OK', style: 'default' }]);
-      return;
-    }
+    // Allow users to continue onboarding even if they deny camera/library permissions
+    // Permission prompts will be enforced when they actually try to use camera or upload later.
 
     if (isQuizSlide && !hasQuizAnswer) {
       Alert.alert('Make a selection', 'Choose an option to personalize your experience.', [{ text: 'OK', style: 'default' }]);
@@ -480,7 +478,8 @@ export default function OnboardingScreen() {
 
   const isContinueDisabled =
     isCompleting || 
-    (requiredPermission ? !currentPermissionGranted : false) ||
+    // Do not disable continue when permissions are missing; allow completion without granting
+    false ||
     (isQuizSlide ? !hasQuizAnswer : false);
 
   return (
