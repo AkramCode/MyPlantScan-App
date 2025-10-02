@@ -14,7 +14,7 @@
       "backgroundColor": "#F9FAFB"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.myplantscan.www",
       "infoPlist": {
         "NSCameraUsageDescription": "$(PRODUCT_NAME) uses the camera to scan and identify plants and analyze plant health.",
