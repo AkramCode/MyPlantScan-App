@@ -341,7 +341,43 @@ export default function CameraScreen() {
             <Text style={styles.permissionDescription}>
               We need access to your camera to identify plants
             </Text>
-            <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+            <TouchableOpacity
+              style={styles.permissionButton}
+              onPress={async () => {
+                try {
+                  if (permission?.canAskAgain) {
+                    const result = await requestPermission();
+                    // If still not granted after request, guide to settings
+                    if (!result?.granted) {
+                      if (Platform.OS !== 'web') {
+                        Alert.alert(
+                          'Camera access required',
+                          'To use the camera, enable camera access in device settings.',
+                          [
+                            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                            { text: 'Cancel', style: 'cancel' },
+                          ]
+                        );
+                      }
+                    }
+                  } else {
+                    // Cannot ask again — immediately direct to settings
+                    if (Platform.OS !== 'web') {
+                      Alert.alert(
+                        'Camera access required',
+                        'To use the camera, enable camera access in device settings.',
+                        [
+                          { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                          { text: 'Cancel', style: 'cancel' },
+                        ]
+                      );
+                    }
+                  }
+                } catch (e) {
+                  console.error('Camera permission request failed:', e);
+                }
+              }}
+            >
               <Text style={styles.permissionButtonText}>Grant Permission</Text>
             </TouchableOpacity>
           </View>

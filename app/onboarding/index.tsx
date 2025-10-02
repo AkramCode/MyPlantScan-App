@@ -369,10 +369,19 @@ export default function OnboardingScreen() {
         setCameraPermissionGranted(result.granted);
 
         if (!result.granted) {
-          Alert.alert(
-            'Camera access is required',
-            'Enable camera access in your device settings to scan plants in real time.'
-          );
+          const message = 'Enable camera access in your device settings to scan plants in real time.';
+          if (result.canAskAgain) {
+            Alert.alert('Camera access is required', message);
+          } else {
+            Alert.alert(
+              'Camera access is required',
+              message,
+              [
+                { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                { text: 'Cancel', style: 'cancel' },
+              ]
+            );
+          }
         }
 
         return result.granted;
@@ -382,10 +391,19 @@ export default function OnboardingScreen() {
       setLibraryPermissionGranted(result.granted);
 
       if (!result.granted) {
-        Alert.alert(
-          'Photo access is required',
-          'Allow photo library access in settings to analyse saved plant images.'
-        );
+        const message = 'Allow photo library access in settings to analyse saved plant images.';
+        if (result.canAskAgain) {
+          Alert.alert('Photo access is required', message);
+        } else {
+          Alert.alert(
+            'Photo access is required',
+            message,
+            [
+              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+              { text: 'Cancel', style: 'cancel' },
+            ]
+          );
+        }
       }
 
       return result.granted;
