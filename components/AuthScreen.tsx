@@ -22,10 +22,11 @@ type AuthMode = 'signin' | 'signup' | 'forgot';
 
 interface AuthScreenProps {
   onAuthSuccess?: () => void;
+  onClose?: () => void;
   mode?: 'signin' | 'signup' | 'forgot';
 }
 
-export default function AuthScreen({ onAuthSuccess, mode: initialMode }: AuthScreenProps) {
+export default function AuthScreen({ onAuthSuccess, onClose, mode: initialMode }: AuthScreenProps) {
   const [mode, setMode] = useState<AuthMode>((initialMode as AuthMode) || 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -131,6 +132,17 @@ export default function AuthScreen({ onAuthSuccess, mode: initialMode }: AuthScr
         <TouchableOpacity
           style={[styles.closeButton, { top: insets.top + 16 }]}
           onPress={async () => {
+            // If a parent provided an onClose handler (modal usage), call it and do not navigate.
+            if (typeof onClose === 'function') {
+              try {
+                onClose();
+              } catch {
+                // ignore
+              }
+              return;
+            }
+
+            // Fallback for standalone usage: ensure guest token then navigate to main tabs
             await ensureGuestToken();
             router.replace('/(tabs)');
           }}

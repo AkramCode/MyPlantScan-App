@@ -530,7 +530,14 @@ export default function HelpScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            try {
+              router.back();
+            } catch {
+              router.replace('/(tabs)');
+            }
+          }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <ArrowLeft size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -593,15 +600,23 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.gray200,
   },
   backButton: {
+    width: 44,
+    height: 44,
     padding: 8,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
   },
   headerTitle: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 18,
     fontWeight: '600',
     color: Colors.textPrimary,
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
   },
   tabNavigation: {
     flexDirection: 'row',
@@ -631,7 +646,7 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   tabContent: {
-    flex: 1,
+    flexGrow: 1,
   },
   searchContainer: {
     padding: 16,
@@ -663,15 +678,19 @@ const styles = StyleSheet.create({
   categoryContent: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    alignItems: 'center',
   },
   categoryButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    minHeight: 40,
     borderRadius: 20,
     backgroundColor: Colors.background,
     marginRight: 8,
     borderWidth: 1,
     borderColor: Colors.gray200,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
   },
   categoryButtonActive: {
     backgroundColor: Colors.primary,
@@ -686,8 +705,8 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   faqContainer: {
-    flex: 1,
     padding: 16,
+    paddingBottom: 40, // extra bottom space so last item not touching edge
   },
   noResultsContainer: {
     alignItems: 'center',

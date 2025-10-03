@@ -12,7 +12,7 @@ export default function AuthIndex() {
 
   return (
     <View style={styles.container}>
-      <AuthScreen onAuthSuccess={handleSuccess} mode={params.mode === 'signup' ? 'signup' : undefined} />
+  <AuthScreen onAuthSuccess={handleSuccess} onClose={() => router.replace('/(tabs)')} mode={params.mode === 'signup' ? 'signup' : undefined} />
     </View>
   );
 }

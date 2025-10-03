@@ -17,6 +17,7 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { Colors } from '@/constants/colors';
 import { router, Stack } from 'expo-router';
 
 import { trackEvent } from '@/lib/analytics';
@@ -504,15 +505,21 @@ export default function WaterCalculatorScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            try {
+              router.back();
+            } catch {
+              router.replace('/(tabs)');
+            }
+          }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Droplets size={24} color="#22C55E" />
-          <Text style={styles.headerTitle}>Water Calculator</Text>
-        </View>
-        <View style={styles.headerRight} />
+
+        <Text style={styles.headerTitle}>Water Calculator</Text>
+
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -640,29 +647,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.gray200,
   },
   backButton: {
+    width: 44,
+    height: 44,
     padding: 8,
-    marginLeft: -8,
-  },
-  headerContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderRadius: 22,
     justifyContent: 'center',
-    marginLeft: -32,
+    alignItems: 'center',
+    zIndex: 20,
   },
   headerTitle: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
-    marginLeft: 8,
   },
-  headerRight: {
-    width: 32,
+  headerSpacer: {
+    width: 44,
   },
   content: {
     padding: 16,

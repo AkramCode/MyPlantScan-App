@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { router } from 'expo-router';
 import { Camera, Leaf, BookOpen } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
+import { useBreakpoints } from '@/hooks/use-breakpoints';
 import { PlantIdentification } from '@/types/plant';
 import PlantCard from '@/components/PlantCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,6 +43,15 @@ export default function HomeScreen() {
   }, [hasPermission, requestPermissions]);
 
   const recentIdentifications: PlantIdentification[] = identifications.slice(0, 10);
+
+  const { isTablet, isLargeTablet } = useBreakpoints();
+  const cardWrapperStyle = useMemo<StyleProp<ViewStyle>>(
+    () => ({
+      width: (isLargeTablet ? '31%' : isTablet ? '47%' : '100%') as unknown as ViewStyle['width'],
+    }),
+    [isLargeTablet, isTablet]
+  );
+
   const stats = {
     totalIdentifications: identifications.length,
     plantsInGarden: userPlants.length,
@@ -55,7 +66,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ResponsiveScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -120,15 +131,17 @@ export default function HomeScreen() {
             </View>
             
             <View style={styles.cardsGrid}>
-              {recentIdentifications.map((identification) => (
-                <View key={identification.id} style={styles.cardWrapper}>
-                  <PlantCard
-                    identification={identification}
-                    onPress={() => handlePlantPress(identification)}
-                    compact={true}
-                  />
-                </View>
-              ))}
+              {recentIdentifications.map((identification) => {
+                return (
+                  <View key={identification.id} style={[styles.cardWrapper, cardWrapperStyle]}>
+                    <PlantCard
+                      identification={identification}
+                      onPress={() => handlePlantPress(identification)}
+                      compact
+                    />
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
@@ -149,12 +162,20 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+      </ResponsiveScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+
+scrollContent: {
+  paddingTop: 24,
+},
+innerContent: {
+  width: '100%',
+},
+
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
@@ -163,7 +184,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 24,
   },
@@ -178,7 +198,6 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   quickActions: {
-    paddingHorizontal: 16,
     marginBottom: 24,
   },
   primaryAction: {
@@ -219,7 +238,6 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
     marginBottom: 24,
     gap: 12,
   },
@@ -250,7 +268,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -300,6 +317,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardWrapper: {
-    width: '48%',
+    width: '100%',
   },
 });

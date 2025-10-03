@@ -38,6 +38,7 @@ export default function PlantDetailsScreen() {
   const [isAddingToGarden, setIsAddingToGarden] = useState(false);
   const [showHealthModal, setShowHealthModal] = useState(false);
   const insets = useSafeAreaInsets();
+  const [showAIDisclaimer, setShowAIDisclaimer] = useState(true);
 
   const normalizedId = Array.isArray(id) ? id[0] : id;
   const identification = normalizedId
@@ -144,7 +145,17 @@ export default function PlantDetailsScreen() {
             </TouchableOpacity>
           </View>
         
-        {/* Main Info */}
+          {/* Main Info */}
+          {showAIDisclaimer && (
+            <View style={styles.disclaimer}>
+              <Text style={styles.disclaimerText}>
+                AI-assisted identification may be incorrect. Use this as guidance and verify with an expert when necessary.
+              </Text>
+              <TouchableOpacity onPress={() => setShowAIDisclaimer(false)} style={styles.disclaimerClose}>
+                <Text style={styles.disclaimerCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         <View style={styles.content}>
           <View style={styles.header}>
             <View style={styles.titleContainer}>
@@ -767,6 +778,30 @@ const styles = StyleSheet.create({
     color: '#22C55E',
     fontWeight: '500',
   },
+  disclaimer: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  disclaimerText: {
+    flex: 1,
+    color: '#92400E',
+    fontSize: 13,
+  },
+  disclaimerClose: {
+    marginLeft: 12,
+    padding: 6,
+  },
+  disclaimerCloseText: {
+    fontSize: 18,
+    color: '#92400E',
+  },
+  
   description: {
     fontSize: 16,
     color: '#374151',

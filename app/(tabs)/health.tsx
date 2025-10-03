@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { Heart, Camera, AlertTriangle, CheckCircle, Clock, FileText, Eye } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
 import { Colors, getHealthStatusColor } from '@/constants/colors';
@@ -63,7 +64,7 @@ export default function HealthScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ResponsiveScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Plant Health</Text>
@@ -169,7 +170,7 @@ export default function HealthScreen() {
                   style={styles.healthCard}
                   onPress={() => router.push(`/health-report?id=${record.id}&source=health`)}
                 >
-                  <Image source={{ uri: record.imageUri }} style={styles.healthImage} />
+                  <Image source={{ uri: record.imageUri }} style={styles.healthImage} resizeMode="cover" />
                   <View style={styles.healthContent}>
                     <View style={styles.healthHeader}>
                       <View style={styles.healthInfo}>
@@ -236,7 +237,7 @@ export default function HealthScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+      </ResponsiveScrollView>
       
       {/* Scanning overlay when analyzing health */}
       <ScanningOverlay 
@@ -248,12 +249,16 @@ export default function HealthScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingTop: 24,
+    paddingBottom: 32,
+    rowGap: 24,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
   },
   header: {
-    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 24,
   },
@@ -268,7 +273,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   quickActions: {
-    paddingHorizontal: 16,
     marginBottom: 24,
   },
   analyzeButton: {
@@ -277,6 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+    paddingHorizontal: 16,
     borderRadius: 12,
   },
   analyzeButtonDisabled: {
@@ -290,7 +295,6 @@ const styles = StyleSheet.create({
   },
   tipsContainer: {
     backgroundColor: Colors.surface,
-    marginHorizontal: 16,
     marginBottom: 24,
     padding: 16,
     borderRadius: 12,
@@ -323,7 +327,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -339,7 +342,6 @@ const styles = StyleSheet.create({
   healthCard: {
     backgroundColor: Colors.surface,
     flexDirection: 'row',
-    marginHorizontal: 16,
     marginBottom: 12,
     borderRadius: 12,
     overflow: 'hidden',
@@ -349,9 +351,8 @@ const styles = StyleSheet.create({
   },
   healthImage: {
     width: 80,
-    height: 80,
+    height: '100%',
     backgroundColor: Colors.gray100,
-    resizeMode: 'cover',
   },
   healthContent: {
     flex: 1,
@@ -414,7 +415,6 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     backgroundColor: Colors.surface,
-    marginHorizontal: 16,
     marginBottom: 24,
     padding: 16,
     borderRadius: 12,
@@ -458,15 +458,16 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
     marginBottom: 16,
     gap: 8,
   },
   filterTab: {
-    paddingHorizontal: 16,
     paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: 20,
     backgroundColor: Colors.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterTabActive: {
     backgroundColor: Colors.primary,

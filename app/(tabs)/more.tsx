@@ -531,13 +531,7 @@ export default function MoreScreen() {
       {/* Auth Screen Modal */}
       {showAuthScreen && (
           <View style={styles.authModal}>
-            <AuthScreen onAuthSuccess={() => setShowAuthScreen(false)} />
-            <TouchableOpacity
-              style={styles.authCloseButton}
-              onPress={() => setShowAuthScreen(false)}
-            >
-              <Text style={styles.authCloseText}>×</Text>
-            </TouchableOpacity>
+            <AuthScreen onAuthSuccess={() => setShowAuthScreen(false)} onClose={() => setShowAuthScreen(false)} />
           </View>
         )}
       
@@ -779,22 +773,5 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 1000,
-  },
-  authCloseButton: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1001,
-  },
-  authCloseText: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: '300',
   },
 });

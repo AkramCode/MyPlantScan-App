@@ -17,9 +17,9 @@ export default function LaunchGate() {
         }
 
         if (mounted) router.replace('/(tabs)');
-    } catch (e) {
-      console.error('LaunchGate error', e);
-      if (mounted) router.replace('/onboarding/welcome');
+      } catch (e) {
+        console.error('LaunchGate error', e);
+        if (mounted) router.replace('/onboarding/welcome');
       } finally {
         if (mounted) setBooted(true);
       }

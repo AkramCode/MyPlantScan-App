@@ -305,13 +305,8 @@ export default function OnboardingScreen() {
 
   const totalSlides = slides.length;
   const currentSlide = slides[currentIndex];
-  const requiredPermission = currentSlide.requiresPermission;
-  const currentPermissionGranted =
-    requiredPermission === 'camera'
-      ? cameraPermissionGranted
-      : requiredPermission === 'library'
-      ? libraryPermissionGranted
-      : true;
+  // Slide permission requirement (kept for potential future usage)
+  // const requiredPermission = currentSlide.requiresPermission;
   const isLastSlide = currentIndex === totalSlides - 1;
   const isQuizSlide = currentSlide.variant === 'quiz';
   const hasQuizAnswer = !isQuizSlide || quizAnswers[currentSlide.key];
@@ -322,6 +317,33 @@ export default function OnboardingScreen() {
       [slideKey]: optionId,
     }));
   }, []);
+
+
+const scrollToIndex = useCallback(
+  (index: number, animated = true) => {
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+
+    try {
+      list.scrollToIndex({ index, animated });
+    } catch (error) {
+      console.warn('Onboarding: scrollToIndex fallback', error);
+      list.scrollToOffset({ offset: index * width, animated });
+    }
+  },
+  [width]
+);
+
+const getItemLayout = useCallback(
+  (data: ArrayLike<OnboardingSlide> | null | undefined, index: number) => ({
+    length: width,
+    offset: width * index,
+    index,
+  }),
+  [width]
+);
 
   const syncPermissions = useCallback(async () => {
     try {
@@ -336,6 +358,7 @@ export default function OnboardingScreen() {
       console.error('Onboarding: permission sync failed', error);
     }
   }, []);
+
 
   useEffect(() => {
     void syncPermissions();
@@ -355,12 +378,13 @@ export default function OnboardingScreen() {
   }, [syncPermissions]);
 
   useEffect(() => {
-    listRef.current?.scrollToIndex({ index: currentIndex, animated: false });
-  }, [width, currentIndex]);
+    scrollToIndex(currentIndex, false);
+  }, [scrollToIndex, currentIndex]);
 
   const handleOpenSettings = useCallback(() => {
     void Linking.openSettings();
   }, []);
+
 
   const handleRequestPermission = useCallback(async (type: 'camera' | 'library') => {
     try {
@@ -417,6 +441,7 @@ export default function OnboardingScreen() {
     }
   }, []);
 
+
   const completeOnboarding = useCallback(async () => {
     if (isCompleting) {
       return;
@@ -448,8 +473,8 @@ export default function OnboardingScreen() {
 
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
-    listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-  }, [completeOnboarding, currentIndex, currentPermissionGranted, isLastSlide, requiredPermission, isQuizSlide, hasQuizAnswer]);
+    scrollToIndex(nextIndex);
+  }, [completeOnboarding, currentIndex, isLastSlide, scrollToIndex, isQuizSlide, hasQuizAnswer]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex === 0) {
@@ -458,8 +483,8 @@ export default function OnboardingScreen() {
 
     const previousIndex = currentIndex - 1;
     setCurrentIndex(previousIndex);
-    listRef.current?.scrollToIndex({ index: previousIndex, animated: true });
-  }, [currentIndex]);
+    scrollToIndex(previousIndex);
+  }, [currentIndex, scrollToIndex]);
 
   const renderItem = useCallback(
     ({ item, index: _index }: { item: OnboardingSlide; index: number }) => {
@@ -549,6 +574,8 @@ export default function OnboardingScreen() {
         bounces={false}
         showsHorizontalScrollIndicator={false}
         renderItem={renderItem}
+        getItemLayout={getItemLayout}
+        extraData={currentIndex}
         style={styles.slidesList}
         contentContainerStyle={styles.slidesContent}
       />
@@ -844,6 +871,4 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 });
-
-
 

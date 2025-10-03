@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Modal } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, StyleProp, ViewStyle } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { Plus, Calendar, MapPin, Clock, BookOpen, Trash2, X } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
 import { PlantIdentification, UserPlant } from '@/types/plant';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBreakpoints } from '@/hooks/use-breakpoints';
 
 export default function GardenScreen() {
   const { userPlants, identifications, removeFromGarden } = usePlantStore();
@@ -37,6 +39,15 @@ export default function GardenScreen() {
   
   const recentIdentifications: PlantIdentification[] = identifications.slice(0, 10);
 
+  const { isTablet, isLargeTablet } = useBreakpoints();
+  const cardLayoutStyle = useMemo<StyleProp<ViewStyle>>(
+    () => ({
+      // percentages are used for responsive grid columns; cast to StyleProp<ViewStyle>
+      width: (isLargeTablet ? '31%' : isTablet ? '47%' : '100%') as unknown as ViewStyle['width'],
+    }),
+    [isLargeTablet, isTablet]
+  );
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       month: 'short',
@@ -54,7 +65,7 @@ export default function GardenScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ResponsiveScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -122,7 +133,7 @@ export default function GardenScreen() {
           userPlants.length > 0 ? (
             <View style={styles.plantsGrid}>
               {userPlants.map((plant: UserPlant) => (
-                <View key={plant.id} style={styles.plantCard}>
+                <View key={plant.id} style={[styles.plantCard, cardLayoutStyle]}>
                   <TouchableOpacity 
                     style={styles.plantCardContent}
                     onPress={() => router.push(`/plant-details?id=${plant.identificationId}&source=garden`)}
@@ -260,7 +271,7 @@ export default function GardenScreen() {
             </View>
           )
         )}
-      </ScrollView>
+      </ResponsiveScrollView>
       
       {/* Remove Plant Modal */}
       <Modal
@@ -305,6 +316,11 @@ export default function GardenScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingTop: 24,
+    paddingBottom: 24,
+    rowGap: 24,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
@@ -313,7 +329,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 24,
   },
@@ -337,7 +352,6 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
     marginBottom: 16,
     gap: 8,
   },
@@ -368,9 +382,10 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    flexWrap: 'wrap',
     marginBottom: 24,
-    gap: 12,
+    columnGap: 12,
+    rowGap: 12,
   },
   statCard: {
     flex: 1,
@@ -393,15 +408,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   plantsGrid: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 16,
+    rowGap: 16,
   },
   plantCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    flexGrow: 1,
   },
   plantCardContent: {
     flex: 1,
