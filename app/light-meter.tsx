@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Animated,
   Alert,
   TextInput,
 } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { LightSensor } from 'expo-sensors';
 import {
   ArrowLeft,
@@ -251,7 +251,7 @@ export default function LightMeterScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ResponsiveScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text style={styles.description}>
             Measure light levels to find the perfect spot for your plants. Point your device toward the area you want to measure.
@@ -494,7 +494,7 @@ export default function LightMeterScreen() {
             </Text>
           </View>
         </View>
-      </ScrollView>
+      </ResponsiveScrollView>
     </View>
   );
 }

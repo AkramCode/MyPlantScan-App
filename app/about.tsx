@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, Platform, ActivityIndicator } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { 
@@ -90,7 +91,7 @@ export default function AboutScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ResponsiveScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* App Info Section */}
         <View style={styles.section}>
           <View style={styles.appLogoContainer}>
@@ -227,7 +228,7 @@ export default function AboutScreen() {
             </Text>
           </View>
         </View>
-      </ScrollView>
+      </ResponsiveScrollView>
     </View>
   );
 }

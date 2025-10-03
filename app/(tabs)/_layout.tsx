@@ -1,8 +1,11 @@
 import { Tabs } from "expo-router";
 import { Home, Heart, Camera, Leaf, MoreHorizontal } from "lucide-react-native";
 import React from "react";
+import { useBreakpoints } from "@/hooks/use-breakpoints";
 
 export default function TabLayout() {
+  const { isTablet } = useBreakpoints();
+
   return (
     <Tabs
       screenOptions={{
@@ -15,7 +18,7 @@ export default function TabLayout() {
           borderTopColor: "#E5E7EB",
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: isTablet ? 14 : 12,
           fontWeight: "500",
           marginTop: 4,
         },

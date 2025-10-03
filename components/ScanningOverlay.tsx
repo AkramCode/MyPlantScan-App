@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Sparkles, Leaf } from 'lucide-react-native';
+import { useBreakpoints } from '@/hooks/use-breakpoints';
 
 interface ScanningOverlayProps {
   isVisible: boolean;
@@ -13,6 +14,33 @@ export default function ScanningOverlay({
   message = 'Analyzing plant...', 
   progress = 0 
 }: ScanningOverlayProps) {
+  const { isTablet } = useBreakpoints();
+
+  const dynamicStyles = useMemo(() => ({
+    scanFrame: {
+      width: isTablet ? 350 : 280,
+      height: isTablet ? 350 : 280,
+      position: 'relative' as const,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    statusText: {
+      fontSize: isTablet ? 20 : 18,
+      fontWeight: '600' as const,
+      color: '#FFFFFF',
+      marginBottom: 12,
+      textAlign: 'center' as const,
+      textShadowColor: 'rgba(0, 0, 0, 0.8)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
+    },
+    progressText: {
+      fontSize: isTablet ? 16 : 14,
+      color: '#FFFFFF',
+      marginTop: 8,
+      fontWeight: '500' as const,
+    },
+  }), [isTablet]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -116,7 +144,7 @@ export default function ScanningOverlay({
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
       <View style={styles.background} />
       
-      <View style={styles.scanFrame}>
+      <View style={dynamicStyles.scanFrame}>
         <View style={[styles.corner, styles.topLeft]} />
         <View style={[styles.corner, styles.topRight]} />
         <View style={[styles.corner, styles.bottomLeft]} />
@@ -185,7 +213,7 @@ export default function ScanningOverlay({
       </View>
       
       <View style={styles.statusContainer}>
-        <Text style={styles.statusText}>{message}</Text>
+        <Text style={dynamicStyles.statusText}>{message}</Text>
         <View style={styles.dots}>
           <Animated.View style={[styles.dot, { opacity: sparkleOpacity }]} />
           <Animated.View style={[styles.dot, { opacity: sparkleOpacity }]} />
@@ -208,7 +236,7 @@ export default function ScanningOverlay({
               ]} 
             />
           </View>
-          <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+          <Text style={dynamicStyles.progressText}>{Math.round(progress)}%</Text>
         </View>
       )}
     </Animated.View>
@@ -233,13 +261,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  },
-  scanFrame: {
-    width: 280,
-    height: 280,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   corner: {
     position: 'absolute',
@@ -322,16 +343,6 @@ const styles = StyleSheet.create({
     marginTop: 40,
     alignItems: 'center',
   },
-  statusText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 12,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
   dots: {
     flexDirection: 'row',
     gap: 8,
@@ -358,11 +369,5 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#22C55E',
     borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    marginTop: 8,
-    fontWeight: '500',
   },
 });

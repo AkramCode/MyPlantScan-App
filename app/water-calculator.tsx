@@ -16,7 +16,8 @@ import {
   Calendar,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { Colors } from '@/constants/colors';
 import { router, Stack } from 'expo-router';
 
@@ -522,7 +523,7 @@ export default function WaterCalculatorScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ResponsiveScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text style={styles.description}>
             Get personalized watering recommendations based on your plant&apos;s specific needs and environment.
@@ -632,7 +633,7 @@ export default function WaterCalculatorScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </ResponsiveScrollView>
     </View>
   );
 }

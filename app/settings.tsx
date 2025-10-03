@@ -4,13 +4,13 @@ import {
   Alert,
   Linking,
   Platform,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
@@ -233,7 +233,7 @@ export default function SettingsScreen() {
           <ActivityIndicator size='large' color={Colors.primary} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ResponsiveScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Notifications</Text>
@@ -369,7 +369,7 @@ export default function SettingsScreen() {
             <Text style={styles.footerText}>MyPlantScan v{appVersion}</Text>
             <Text style={styles.footerSubtext}>Grow smarter every day.</Text>
           </View>
-        </ScrollView>
+        </ResponsiveScrollView>
       )}
     </View>
   );

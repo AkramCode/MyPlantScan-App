@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Leaf, Calendar } from 'lucide-react-native';
 import { PlantIdentification } from '@/types/plant';
+import { useBreakpoints } from '@/hooks/use-breakpoints';
 
 interface PlantCardProps {
   identification: PlantIdentification;
@@ -10,6 +11,7 @@ interface PlantCardProps {
 }
 
 export default function PlantCard({ identification, onPress, compact = false }: PlantCardProps) {
+  const { isTablet } = useBreakpoints();
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       month: 'short',
@@ -25,7 +27,7 @@ export default function PlantCard({ identification, onPress, compact = false }: 
   };
 
   return (
-    <TouchableOpacity style={[styles.container, compact && styles.compactContainer]} onPress={onPress}>
+    <TouchableOpacity style={[styles.container, compact && styles.compactContainer, isTablet && styles.tabletContainer]} onPress={onPress}>
       {identification.imageUri ? (
         <Image source={{ uri: identification.imageUri }} style={[styles.image, compact && styles.compactImage]} />
       ) : (
@@ -174,5 +176,9 @@ const styles = StyleSheet.create({
   compactDate: {
     fontSize: 10,
     color: '#6B7280',
+  },
+  tabletContainer: {
+    marginHorizontal: 24,
+    marginVertical: 12,
   },
 });

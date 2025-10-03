@@ -3,7 +3,6 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  ScrollView, 
   TouchableOpacity, 
   TextInput,
   Linking,
@@ -11,6 +10,7 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { 
@@ -287,7 +287,7 @@ export default function HelpScreen() {
 
 
   const renderFAQTab = () => (
-    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+    <ResponsiveScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
@@ -303,7 +303,7 @@ export default function HelpScreen() {
       </View>
 
       {/* Category Filter */}
-      <ScrollView 
+      <ResponsiveScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
         style={styles.categoryContainer}
@@ -326,7 +326,7 @@ export default function HelpScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </ResponsiveScrollView>
 
       {/* FAQ List */}
       <View style={styles.faqContainer}>
@@ -364,11 +364,11 @@ export default function HelpScreen() {
           ))
         )}
       </View>
-    </ScrollView>
+    </ResponsiveScrollView>
   );
 
   const renderTutorialsTab = () => (
-    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+    <ResponsiveScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       <View style={styles.tutorialsContainer}>
         {tutorials.map((tutorial) => (
           <View key={tutorial.id} style={styles.tutorialCard}>
@@ -397,11 +397,11 @@ export default function HelpScreen() {
           </View>
         ))}
       </View>
-    </ScrollView>
+    </ResponsiveScrollView>
   );
 
   const renderContactTab = () => (
-    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+    <ResponsiveScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       <View style={styles.contactContainer}>
         {/* Contact Methods */}
         <View style={styles.contactSection}>
@@ -521,7 +521,7 @@ export default function HelpScreen() {
           </View>
         </View>
       </View>
-    </ScrollView>
+    </ResponsiveScrollView>
   );
 
   return (

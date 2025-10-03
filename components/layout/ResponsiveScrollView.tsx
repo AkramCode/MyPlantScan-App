@@ -45,7 +45,11 @@ export default function ResponsiveScrollView({
     {
       paddingLeft: horizontalPadding + insets.left,
       paddingRight: horizontalPadding + insets.right,
-      paddingBottom: Math.max(32, insets.bottom + 16),
+      // Ensure content doesn't get obscured by the tab bar on phones/tablets.
+      // Add a comfortable bottom inset (tab bar height ~56) plus safe area.
+      // This reduces the chance of the content being covered by the tab bar
+      // and avoids a white gap over tab labels in some environments (web/dev).
+      paddingBottom: insets.bottom + (isTablet ? 48 : 80),
     },
     contentContainerStyle,
   ];
@@ -53,7 +57,9 @@ export default function ResponsiveScrollView({
   return (
     <ScrollView
       {...rest}
-      style={style}
+      // Keep the scroll view background transparent so the app's tab bar
+      // or other bottom chrome isn't visually obscured by a white sheet.
+      style={[{ backgroundColor: 'transparent' }, style]}
       contentContainerStyle={combinedContentContainerStyle}
     >
       <View style={[styles.innerContentWrapper, { maxWidth: computedMaxWidth }, innerStyle]}>

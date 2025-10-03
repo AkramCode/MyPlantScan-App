@@ -52,6 +52,20 @@ export default function HomeScreen() {
     [isLargeTablet, isTablet]
   );
 
+  const responsiveTextStyles = useMemo(() => ({
+    greeting: { fontSize: isTablet ? 18 : 16 },
+    appName: { fontSize: isTablet ? 32 : 28 },
+    primaryActionText: { fontSize: isTablet ? 18 : 16 },
+    secondaryActionText: { fontSize: isTablet ? 16 : 14 },
+    statNumber: { fontSize: isTablet ? 28 : 24 },
+    statLabel: { fontSize: isTablet ? 14 : 12 },
+    sectionTitle: { fontSize: isTablet ? 22 : 20 },
+    seeAll: { fontSize: isTablet ? 16 : 14 },
+    emptyTitle: { fontSize: isTablet ? 22 : 20 },
+    emptyDescription: { fontSize: isTablet ? 18 : 16 },
+    emptyActionText: { fontSize: isTablet ? 18 : 16 },
+  }), [isTablet]);
+
   const stats = {
     totalIdentifications: identifications.length,
     plantsInGarden: userPlants.length,
@@ -70,8 +84,8 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Good morning!</Text>
-            <Text style={styles.appName}>MyPlantScan</Text>
+            <Text style={[styles.greeting, responsiveTextStyles.greeting]}>Good morning!</Text>
+            <Text style={[styles.appName, responsiveTextStyles.appName]}>MyPlantScan</Text>
           </View>
         </View>
 
@@ -82,7 +96,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/camera')}
           >
             <Camera size={24} color="#FFFFFF" />
-            <Text style={styles.primaryActionText}>Identify Plant</Text>
+            <Text style={[styles.primaryActionText, responsiveTextStyles.primaryActionText]}>Identify Plant</Text>
           </TouchableOpacity>
           
           <View style={styles.secondaryActions}>
@@ -91,7 +105,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/health')}
             >
               <Leaf size={20} color="#22C55E" />
-              <Text style={styles.secondaryActionText}>Health Check</Text>
+              <Text style={[styles.secondaryActionText, responsiveTextStyles.secondaryActionText]}>Health Check</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -99,7 +113,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/garden')}
             >
               <BookOpen size={20} color="#22C55E" />
-              <Text style={styles.secondaryActionText}>My Garden</Text>
+              <Text style={[styles.secondaryActionText, responsiveTextStyles.secondaryActionText]}>My Garden</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -107,16 +121,16 @@ export default function HomeScreen() {
         {/* Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.totalIdentifications}</Text>
-            <Text style={styles.statLabel}>Plants Identified</Text>
+            <Text style={[styles.statNumber, responsiveTextStyles.statNumber]}>{stats.totalIdentifications}</Text>
+            <Text style={[styles.statLabel, responsiveTextStyles.statLabel]}>Plants Identified</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.plantsInGarden}</Text>
-            <Text style={styles.statLabel}>In Garden</Text>
+            <Text style={[styles.statNumber, responsiveTextStyles.statNumber]}>{stats.plantsInGarden}</Text>
+            <Text style={[styles.statLabel, responsiveTextStyles.statLabel]}>In Garden</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.thisWeek}</Text>
-            <Text style={styles.statLabel}>This Week</Text>
+            <Text style={[styles.statNumber, responsiveTextStyles.statNumber]}>{stats.thisWeek}</Text>
+            <Text style={[styles.statLabel, responsiveTextStyles.statLabel]}>This Week</Text>
           </View>
         </View>
 
@@ -124,7 +138,7 @@ export default function HomeScreen() {
         {recentIdentifications.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Identifications</Text>
+              <Text style={[styles.sectionTitle, responsiveTextStyles.sectionTitle]}>Recent Identifications</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/garden')}>
                 <Text style={styles.seeAll}>More</Text>
               </TouchableOpacity>
@@ -150,15 +164,15 @@ export default function HomeScreen() {
         {identifications.length === 0 && !isLoading && (
           <View style={styles.emptyState}>
             <Leaf size={64} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>Start Your Plant Journey</Text>
-            <Text style={styles.emptyDescription}>
+            <Text style={[styles.emptyTitle, responsiveTextStyles.emptyTitle]}>Start Your Plant Journey</Text>
+            <Text style={[styles.emptyDescription, responsiveTextStyles.emptyDescription]}>
               Take a photo of any plant to identify it and learn more about it
             </Text>
             <TouchableOpacity 
               style={styles.emptyAction}
               onPress={() => router.push('/camera')}
             >
-              <Text style={styles.emptyActionText}>Identify Your First Plant</Text>
+              <Text style={[styles.emptyActionText, responsiveTextStyles.emptyActionText]}>Identify Your First Plant</Text>
             </TouchableOpacity>
           </View>
         )}

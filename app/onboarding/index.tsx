@@ -19,8 +19,6 @@ import {
   ArrowRight,
   CheckCircle2,
   ArrowLeft,
-  Shield,
-  Lock,
 } from 'lucide-react-native';
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -149,20 +147,6 @@ const OnboardingCard: React.FC<OnboardingCardProps> = ({
 
         {showPermissionCta && (
           <View style={styles.permissionSection}>
-            <View style={styles.permissionHeader}>
-              <Shield size={24} color={Colors.primary} strokeWidth={2} />
-              {item.permissionTitle && (
-                <Text style={styles.permissionTitle}>{item.permissionTitle}</Text>
-              )}
-            </View>
-            
-            {item.permissionDescription && (
-              <View style={styles.permissionDescContainer}>
-                <Lock size={16} color={Colors.textSecondary} strokeWidth={2} />
-                <Text style={styles.permissionDetails}>{item.permissionDescription}</Text>
-              </View>
-            )}
-
             <TouchableOpacity
               style={[
                 styles.permissionButton,
@@ -193,17 +177,6 @@ const OnboardingCard: React.FC<OnboardingCardProps> = ({
                 </>
               )}
             </TouchableOpacity>
-
-            {!permissionGranted && (
-              <TouchableOpacity
-                onPress={onOpenSettings}
-                style={styles.settingsLink}
-                accessibilityRole="button"
-                accessibilityLabel="Open device settings to manage permissions"
-              >
-                <Text style={styles.settingsLinkText}>Open Device Settings</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
       </View>
@@ -393,12 +366,12 @@ const getItemLayout = useCallback(
         setCameraPermissionGranted(result.granted);
 
         if (!result.granted) {
-          const message = 'Enable camera access in your device settings to scan plants in real time.';
+          const message = 'Enable camera in settings.';
           if (result.canAskAgain) {
-            Alert.alert('Camera access is required', message);
+            Alert.alert('Camera needed', message);
           } else {
             Alert.alert(
-              'Camera access is required',
+              'Camera needed',
               message,
               [
                 { text: 'Open Settings', onPress: () => void Linking.openSettings() },
@@ -415,12 +388,12 @@ const getItemLayout = useCallback(
       setLibraryPermissionGranted(result.granted);
 
       if (!result.granted) {
-        const message = 'Allow photo library access in settings to analyse saved plant images.';
+        const message = 'Allow photo access in settings.';
         if (result.canAskAgain) {
-          Alert.alert('Photo access is required', message);
+          Alert.alert('Photo access needed', message);
         } else {
           Alert.alert(
-            'Photo access is required',
+            'Photo access needed',
             message,
             [
               { text: 'Open Settings', onPress: () => void Linking.openSettings() },
@@ -462,7 +435,7 @@ const getItemLayout = useCallback(
     // Permission prompts will be enforced when they actually try to use camera or upload later.
 
     if (isQuizSlide && !hasQuizAnswer) {
-      Alert.alert('Make a selection', 'Choose an option to personalize your experience.', [{ text: 'OK', style: 'default' }]);
+      Alert.alert('Select option', 'Choose to continue.', [{ text: 'OK', style: 'default' }]);
       return;
     }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Share as RNShare, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Platform, Share as RNShare, Alert } from 'react-native';
+import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { 
   Leaf, 
@@ -127,7 +128,7 @@ export default function PlantDetailsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ResponsiveScrollView showsVerticalScrollIndicator={false}>
           {/* Hero Image with Back Button */}
           <View style={styles.heroContainer}>
             <Image source={{ uri: identification.imageUri }} style={styles.heroImage} />
@@ -575,7 +576,7 @@ export default function PlantDetailsScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </ResponsiveScrollView>
       
       {/* Scanning overlay when analyzing health */}
       <ScanningOverlay 
