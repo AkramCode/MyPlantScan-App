@@ -29,7 +29,6 @@ import {
   Sun,
   Heart,
   Settings,
-  Users,
   Lightbulb,
   AlertTriangle
 } from 'lucide-react-native';
@@ -208,12 +207,11 @@ const tutorials: TutorialItem[] = [
   }
 ];
 
-const categories = ['All', 'Plant Identification', 'Photography Tips', 'Health Analysis', 'Garden Management', 'Plant Care Tools', 'Technical', 'Privacy & Security', 'Account', 'Troubleshooting'];
+// categories removed per design: filtering is provided via search only
 
 export default function HelpScreen() {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedFAQ, setExpandedFAQ] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'faq' | 'tutorials' | 'contact'>('faq');
   const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
@@ -221,9 +219,7 @@ export default function HelpScreen() {
   const filteredFAQs = useMemo(() => {
     let filtered = faqData;
 
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(item => item.category === selectedCategory);
-    }
+    // Category filtering removed; keep search-based filtering only
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -235,7 +231,7 @@ export default function HelpScreen() {
     }
 
     return filtered;
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery]);
 
   const toggleFAQ = (id: string) => {
     const newExpanded = new Set(expandedFAQ);
@@ -302,31 +298,7 @@ export default function HelpScreen() {
         </View>
       </View>
 
-      {/* Category Filter */}
-      <ResponsiveScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryContainer}
-        contentContainerStyle={styles.categoryContent}
-      >
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category && styles.categoryButtonActive
-            ]}
-            onPress={() => setSelectedCategory(category)}
-          >
-            <Text style={[
-              styles.categoryButtonText,
-              selectedCategory === category && styles.categoryButtonTextActive
-            ]}>
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ResponsiveScrollView>
+      {/* Category filter removed - search-only filtering is used */}
 
       {/* FAQ List */}
       <View style={styles.faqContainer}>
@@ -429,36 +401,7 @@ export default function HelpScreen() {
               <ExternalLink size={16} color={Colors.gray500} />
             )}
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.contactMethod}
-            onPress={() => Alert.alert('Live Chat', 'Live chat support is coming soon! For now, please use email support below.')}
-          >
-            <View style={styles.contactMethodIcon}>
-              <MessageCircle size={24} color={Colors.primary} />
-            </View>
-            <View style={styles.contactMethodInfo}>
-              <Text style={styles.contactMethodTitle}>Live Chat</Text>
-              <Text style={styles.contactMethodDescription}>Real-time assistance</Text>
-              <Text style={styles.contactMethodNote}>Coming Soon</Text>
-            </View>
-            <ExternalLink size={16} color={Colors.gray500} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.contactMethod}
-            onPress={() => Alert.alert('Community Forum', 'Community forum is coming soon! Join our growing community of plant enthusiasts.')}
-          >
-            <View style={styles.contactMethodIcon}>
-              <Users size={24} color={Colors.primary} />
-            </View>
-            <View style={styles.contactMethodInfo}>
-              <Text style={styles.contactMethodTitle}>Community Forum</Text>
-              <Text style={styles.contactMethodDescription}>Connect with other plant enthusiasts</Text>
-              <Text style={styles.contactMethodNote}>Coming Soon</Text>
-            </View>
-            <ExternalLink size={16} color={Colors.gray500} />
-          </TouchableOpacity>
+          {/* Live Chat and Community Forum removed per request */}
         </View>
 
         {/* Quick Actions */}
