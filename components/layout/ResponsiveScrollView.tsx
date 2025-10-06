@@ -5,18 +5,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ResponsiveScrollViewProps extends ScrollViewProps {
   children: React.ReactNode;
-  /**
-   * Maximum width applied to the inner content wrapper once tablet breakpoints are reached.
-   */
+  /** Maximum width applied to the inner content wrapper once tablet breakpoints are reached. */
   maxContentWidth?: number;
-  /**
-   * Ensure a minimum horizontal padding regardless of screen size.
-   */
+  /** Ensure a minimum horizontal padding regardless of screen size. */
   minHorizontalPadding?: number;
-  /**
-   * Additional style overrides for the inner content wrapper.
-   */
+  /** Additional style overrides for the inner content wrapper. */
   innerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Provide a top component (e.g. hero image) that should span full width edge-to-edge.
+   * When provided with fullBleedTop, this renders above the padded content area.
+   */
+  topComponent?: React.ReactNode;
+  /** If true, removes horizontal padding for the topComponent so it bleeds to the edges. */
+  fullBleedTop?: boolean;
 }
 
 const TABLET_BREAKPOINT = 768;
@@ -30,6 +31,8 @@ export default function ResponsiveScrollView({
   maxContentWidth,
   minHorizontalPadding = DEFAULT_MIN_PADDING,
   innerStyle,
+  topComponent,
+  fullBleedTop = false,
   ...rest
 }: ResponsiveScrollViewProps) {
   const { width } = useWindowDimensions();
@@ -43,12 +46,8 @@ export default function ResponsiveScrollView({
   const combinedContentContainerStyle = [
     styles.baseContentContainer,
     {
-      paddingLeft: horizontalPadding + insets.left,
-      paddingRight: horizontalPadding + insets.right,
-      // Ensure content doesn't get obscured by the tab bar on phones/tablets.
-      // Add a comfortable bottom inset (tab bar height ~56) plus safe area.
-      // This reduces the chance of the content being covered by the tab bar
-      // and avoids a white gap over tab labels in some environments (web/dev).
+      paddingLeft: fullBleedTop ? 0 : horizontalPadding + insets.left,
+      paddingRight: fullBleedTop ? 0 : horizontalPadding + insets.right,
       paddingBottom: insets.bottom + (isTablet ? 48 : 80),
     },
     contentContainerStyle,
@@ -57,12 +56,21 @@ export default function ResponsiveScrollView({
   return (
     <ScrollView
       {...rest}
-      // Keep the scroll view background transparent so the app's tab bar
-      // or other bottom chrome isn't visually obscured by a white sheet.
       style={[{ backgroundColor: 'transparent' }, style]}
       contentContainerStyle={combinedContentContainerStyle}
     >
-      <View style={[styles.innerContentWrapper, { maxWidth: computedMaxWidth }, innerStyle]}>
+      {topComponent && (
+        <View style={fullBleedTop ? styles.fullBleedWrapper : undefined}>
+          {topComponent}
+        </View>
+      )}
+      <View
+        style={[
+          styles.innerContentWrapper,
+          { maxWidth: computedMaxWidth, paddingLeft: fullBleedTop ? horizontalPadding + insets.left : 0, paddingRight: fullBleedTop ? horizontalPadding + insets.right : 0 },
+          innerStyle,
+        ]}
+      >
         {children}
       </View>
     </ScrollView>
@@ -74,6 +82,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   innerContentWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+  },
+  fullBleedWrapper: {
     width: '100%',
     alignSelf: 'center',
   },

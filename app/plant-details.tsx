@@ -128,24 +128,29 @@ export default function PlantDetailsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <ResponsiveScrollView showsVerticalScrollIndicator={false}>
-          {/* Hero Image with Back Button */}
-          <View style={styles.heroContainer}>
-            <Image source={{ uri: identification.imageUri }} style={styles.heroImage} />
-            <TouchableOpacity 
-              style={[styles.backButton, { top: insets.top + 16 }]} 
-              onPress={handleBackPress}
-            >
-              <ArrowLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.shareButton, { top: insets.top + 16 }]} 
-              onPress={handleShare}
-            >
-              <Share size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        
+        <ResponsiveScrollView
+          showsVerticalScrollIndicator={false}
+          fullBleedTop
+          maxContentWidth={1600}
+          innerStyle={{ paddingLeft: 16, paddingRight: 16 }}
+          topComponent={(
+            <View style={styles.heroContainer}>
+              <Image source={{ uri: identification.imageUri }} style={styles.heroImage} />
+              <TouchableOpacity
+                style={[styles.backButton, { top: insets.top + 16 }]}
+                onPress={handleBackPress}
+              >
+                <ArrowLeft size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.shareButton, { top: insets.top + 16 }]}
+                onPress={handleShare}
+              >
+                <Share size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          )}
+        >
           {/* Main Info */}
           {showAIDisclaimer && (
             <View style={styles.disclaimer}>
@@ -157,7 +162,7 @@ export default function PlantDetailsScreen() {
               </TouchableOpacity>
             </View>
           )}
-        <View style={styles.content}>
+          <View style={styles.content}>
           <View style={styles.header}>
             <View style={styles.titleContainer}>
               <Text style={styles.plantName}>{identification.plantName}</Text>
@@ -575,8 +580,8 @@ export default function PlantDetailsScreen() {
               </View>
             </View>
           )}
-        </View>
-      </ResponsiveScrollView>
+          </View>
+        </ResponsiveScrollView>
       
       {/* Scanning overlay when analyzing health */}
       <ScanningOverlay 
@@ -647,7 +652,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   content: {
-    padding: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   header: {
     flexDirection: 'row',

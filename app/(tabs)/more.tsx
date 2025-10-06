@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, Linking, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, Linking, Share, Modal } from 'react-native';
 import { Info, Star, Share2, HelpCircle, Trash2, ChevronRight, Settings, Shield, FileText, Droplets, Sun, User, LogIn, LogOut } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,47 +11,96 @@ import ProfileModal from '@/components/ProfileModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MoreScreen() {
-  const { identifications, userPlants, healthRecords } = usePlantStore();
+  const { identifications, userPlants, healthRecords, clearAllRemoteData } = usePlantStore();
   const { user, profile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
+
+  const performClearData = async () => {
+    try {
+        const BASE_KEYS = ['plant_identifications', 'plant_health_records', 'user_plants'];
+
+        let remoteSummary: Awaited<ReturnType<typeof clearAllRemoteData>> | null = null;
+        let remoteErrorMessage: string | null = null;
+
+        try {
+          remoteSummary = await clearAllRemoteData();
+        } catch (remoteError) {
+          remoteErrorMessage =
+            remoteError instanceof Error ? remoteError.message : 'Unknown cloud error';
+          console.warn('MoreScreen: clearAllRemoteData failed', remoteError);
+        }
+
+        if (Platform.OS === 'web') {
+          // Remove any key that starts with our base keys (namespaced keys look like base:user:xyz)
+          const toRemove: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            if (BASE_KEYS.some(prefix => key.startsWith(prefix))) {
+              toRemove.push(key);
+            }
+          }
+          toRemove.forEach(k => localStorage.removeItem(k));
+        } else {
+          const allKeys = await AsyncStorage.getAllKeys();
+          const filtered = allKeys.filter(k => BASE_KEYS.some(prefix => k.startsWith(prefix)));
+          if (filtered.length) {
+            await AsyncStorage.multiRemove(filtered);
+          }
+        }
+
+        // Reset react-query caches to empty arrays so UI updates immediately
+        queryClient.setQueriesData({ queryKey: ['plant_identifications'] }, () => []);
+        queryClient.setQueriesData({ queryKey: ['plant_health_records'] }, () => []);
+        queryClient.setQueriesData({ queryKey: ['user_plants'] }, () => []);
+
+        // Invalidate to ensure any subsequent refetch respects cleared state
+        queryClient.invalidateQueries({ queryKey: ['plant_identifications'] });
+        queryClient.invalidateQueries({ queryKey: ['plant_health_records'] });
+        queryClient.invalidateQueries({ queryKey: ['user_plants'] });
+
+        const formatCount = (count: number, singular: string, plural: string) =>
+          `${count} ${count === 1 ? singular : plural}`;
+
+        const title = remoteErrorMessage ? 'Partial Success' : 'Success';
+        let message = 'All local plant data has been cleared.';
+
+        if (remoteSummary) {
+          const { identifications: identCount, healthRecords: healthCount, gardenPlants: gardenCount } = remoteSummary;
+          const totalRemote = identCount + healthCount + gardenCount;
+
+          if (totalRemote > 0) {
+            const remoteParts: string[] = [];
+            if (identCount) {
+              remoteParts.push(formatCount(identCount, 'identification', 'identifications'));
+            }
+            if (gardenCount) {
+              remoteParts.push(formatCount(gardenCount, 'garden plant', 'garden plants'));
+            }
+            if (healthCount) {
+              remoteParts.push(formatCount(healthCount, 'health record', 'health records'));
+            }
+            message += ` Removed ${remoteParts.join(', ')} from cloud storage.`;
+          } else {
+            message += ' No cloud data was stored for this account.';
+          }
+        } else if (remoteErrorMessage) {
+          message += ` Cloud data could not be cleared (${remoteErrorMessage}).`;
+        }
+
+        Alert.alert(title, message.trim());
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      Alert.alert('Error', 'Failed to clear data. Please try again.');
+    }
+  };
 
   const handleClearData = () => {
-    Alert.alert(
-      'Clear All Data',
-      'This will permanently delete all your plant identifications, garden plants, and health records. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Clear data using AsyncStorage directly since we need to clear all storage keys
-              if (Platform.OS === 'web') {
-                localStorage.removeItem('plant_identifications');
-                localStorage.removeItem('plant_health_records');
-                localStorage.removeItem('user_plants');
-              } else {
-
-                await AsyncStorage.multiRemove([
-                  'plant_identifications',
-                  'plant_health_records',
-                  'user_plants'
-                ]);
-              }
-              queryClient.invalidateQueries();
-              Alert.alert('Success', 'All data has been cleared successfully.');
-            } catch (error) {
-              console.error('Error clearing data:', error);
-              Alert.alert('Error', 'Failed to clear data. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    setShowClearModal(true);
   };
 
   const handleShare = async () => {
@@ -540,6 +589,35 @@ export default function MoreScreen() {
         visible={showProfileModal}
         onClose={() => setShowProfileModal(false)}
       />
+
+      {/* Clear Data Modal */}
+      <Modal visible={showClearModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Clear All Data</Text>
+            <Text style={styles.modalMessage}>
+              This will permanently delete all your plant identifications, garden plants, and health records. This action cannot be undone.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowClearModal(false)}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={async () => {
+                  setShowClearModal(false);
+                  await performClearData();
+                }}
+              >
+                <Text style={styles.clearText}>Clear All</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -773,5 +851,63 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 1000,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    width: '80%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  cancelText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  clearButton: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginLeft: 10,
+    alignItems: 'center',
+  },
+  clearText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

@@ -1,4 +1,4 @@
-import type { PlantHealth, PlantIdentification, UserPlant } from '@/types/plant';
+﻿import type { PlantHealth, PlantIdentification, UserPlant } from '@/types/plant';
 const DEFAULT_BACKEND_URL = 'https://www.myplantscan.com';
 
 const getBackendBaseUrl = () => {
@@ -60,9 +60,11 @@ async function request<T>(
     guestToken?: string;
   } = {}
 ): Promise<{ data: T | null; error: BackendError | null }> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
+
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (accessToken) {
       headers.Authorization = `Bearer ${accessToken}`;
@@ -207,9 +209,16 @@ type DeleteGardenPlantPayload = PlantDataScope & {
   plantId: string;
 };
 
+export type ClearAllSummary = {
+  identifications: number;
+  healthRecords: number;
+  gardenPlants: number;
+};
+
 const IDENTIFICATIONS_ENDPOINT = '/api/plants/identifications';
 const HEALTH_RECORDS_ENDPOINT = '/api/plants/health-records';
 const GARDEN_ENDPOINT = '/api/plants/garden';
+const CLEAR_ALL_ENDPOINT = '/api/plants/garden?clear=all';
 
 export async function fetchPlantIdentifications(
   scope: PlantDataScope
@@ -356,3 +365,15 @@ export async function deleteGardenPlant(
     error,
   };
 }
+
+// Bulk clear all plant-related data for current auth scope (user or guest)
+export async function clearAllPlantData(scope: PlantDataScope): Promise<{ data: ClearAllSummary | null; error: BackendError | null }> {
+  const { data, error } = await request<{ cleared: ClearAllSummary }>(CLEAR_ALL_ENDPOINT, {
+    method: 'DELETE',
+    accessToken: scope.accessToken,
+    guestToken: scope.guestToken,
+  });
+
+  return { data: data?.cleared ?? null, error };
+}
+

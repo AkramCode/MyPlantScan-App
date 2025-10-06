@@ -13,6 +13,7 @@ import {
   fetchGardenPlants,
   saveGardenPlant,
   deleteGardenPlant,
+  type ClearAllSummary,
 } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 // Simple storage helper
@@ -1635,6 +1636,34 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
     [removeFromGardenMutation]
   );
 
+  const clearAllRemoteData = useCallback(async (): Promise<ClearAllSummary> => {
+    const scope = await resolveScope();
+
+    try {
+      const { clearAllPlantData } = await import('@/lib/supabase');
+      const { data, error } = await clearAllPlantData(scope);
+
+      if (error) {
+        throw new Error(error.message || 'Failed to clear remote plant data');
+      }
+
+      return (
+        data ?? {
+          identifications: 0,
+          healthRecords: 0,
+          gardenPlants: 0,
+        }
+      );
+    } catch (err) {
+      console.warn('PlantStore: clearAllRemoteData exception', err);
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error('Failed to clear remote plant data');
+    }
+  }, [resolveScope]);
+
+
   return useMemo(
     () => ({
       identifications: identificationsQuery.data ?? ([] as PlantIdentification[]),
@@ -1652,6 +1681,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
       analyzeHealth,
       addToGarden,
       removeFromGarden,
+      clearAllRemoteData,
     }),
     [
       identificationsQuery.data,
@@ -1666,10 +1696,7 @@ export const [PlantStoreProvider, usePlantStore] = createContextHook(() => {
       analyzeHealth,
       addToGarden,
       removeFromGarden,
+      clearAllRemoteData,
     ]
   );
 });
-
-
-
-
