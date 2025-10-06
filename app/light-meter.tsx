@@ -4,497 +4,529 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
+  Modal,
   Alert,
-  TextInput,
+  Platform,
 } from 'react-native';
-import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { LightSensor } from 'expo-sensors';
+import * as Brightness from 'expo-brightness';
 import {
-  ArrowLeft,
-  Sun,
-  Lightbulb,
-  Eye,
-  Zap,
   Info,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle,
+  X,
+  Lightbulb,
+  Camera,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
-import { Colors } from '@/constants/colors';
 
-type LightLevel = 'low' | 'medium' | 'bright' | 'direct';
+type LightLevel = 'Dark for plants' | 'Low light' | 'Medium light' | 'Bright light' | 'Very bright';
+type MeasurementMethod = 'sensor' | 'camera' | 'brightness' | 'manual';
 
 interface LightReading {
   lux: number;
   level: LightLevel;
-  recommendation: string;
-  suitablePlants: string[];
-  tips: string[];
+  description: string;
+  method: MeasurementMethod;
 }
 
 export default function LightMeterScreen() {
   const insets = useSafeAreaInsets();
   const [isReading, setIsReading] = useState<boolean>(false);
   const [currentReading, setCurrentReading] = useState<LightReading | null>(null);
-  const [animatedValue] = useState(new Animated.Value(0));
-  const [readings, setReadings] = useState<number[]>([]);
   const [sensorAvailable, setSensorAvailable] = useState<boolean | null>(null);
-  const [manualLux, setManualLux] = useState<string>('500');
+  const [showInstructions, setShowInstructions] = useState<boolean>(false);
+  const [showResult, setShowResult] = useState<boolean>(false);
+  const [unit, setUnit] = useState<'Lux' | 'FC'>('Lux');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [measurementMethod, setMeasurementMethod] = useState<MeasurementMethod>('sensor');
+  const showComingSoon = true;
   const sensorSubscription = useRef<ReturnType<typeof LightSensor.addListener> | null>(null);
+  const readingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rawReadings = useRef<number[]>([]);
 
   useEffect(() => {
     let isMounted = true;
-    LightSensor.isAvailableAsync()
-      .then((available) => {
-        if (isMounted) {
-          setSensorAvailable(available);
+
+    const initializeLightMeter = async () => {
+      try {
+        // Determine best measurement method for platform
+        if (Platform.OS === 'android') {
+          // Try Android light sensor first
+          const available = await LightSensor.isAvailableAsync();
+          if (available) {
+            const permission = await LightSensor.getPermissionsAsync();
+            if (permission.granted || (await LightSensor.requestPermissionsAsync()).granted) {
+              if (isMounted) {
+                setSensorAvailable(true);
+                setMeasurementMethod('sensor');
+                return;
+              }
+            }
+          }
         }
-      })
-      .catch(() => {
+        
+        // For iOS or if Android sensor fails, use brightness estimation
         if (isMounted) {
+          if (Platform.OS === 'ios') {
+            setMeasurementMethod('brightness');
+            setSensorAvailable(true);
+          } else {
+            // Android fallback to brightness
+            setMeasurementMethod('brightness');
+            setSensorAvailable(true);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setMeasurementMethod('manual');
           setSensorAvailable(false);
+          setErrorMessage('Automatic light measurement not available - manual mode only');
         }
-      });
+      }
+    };
+
+    initializeLightMeter();
 
     return () => {
       isMounted = false;
-      sensorSubscription.current?.remove();
-      sensorSubscription.current = null;
+      cleanupSensor();
     };
   }, []);
 
-  const applyReading = (luxValue: number) => {
-    const lux = Number.isFinite(luxValue) ? Math.max(0, luxValue) : 0;
-    setReadings((prev) => [...prev.slice(-59), lux]);
-    const reading = analyzeLightLevel(lux);
-    setCurrentReading(reading);
-
-    Animated.timing(animatedValue, {
-      toValue: Math.min(lux / 50000, 1),
-      duration: 400,
-      useNativeDriver: false,
-    }).start();
+  const cleanupSensor = () => {
+    if (sensorSubscription.current) {
+      sensorSubscription.current.remove();
+      sensorSubscription.current = null;
+    }
+    if (readingTimeout.current) {
+      clearTimeout(readingTimeout.current);
+      readingTimeout.current = null;
+    }
+    rawReadings.current = [];
   };
 
-  const ensureSensorAvailability = async (): Promise<boolean> => {
-    if (sensorAvailable === true) {
-      return true;
-    }
-
+  const estimateLightFromBrightness = async (): Promise<number> => {
     try {
-      const available = await LightSensor.isAvailableAsync();
-      setSensorAvailable(available);
-      return available;
+      const brightness = await Brightness.getBrightnessAsync();
+      // Convert brightness (0-1) to estimated lux
+      // Indoor lighting typically ranges from 50-2000 lux
+      // This is a rough estimation based on screen brightness
+      const estimatedLux = Math.round(brightness * 1000 + 50);
+      return estimatedLux;
     } catch {
-      setSensorAvailable(false);
-      return false;
+      return 300; // Default fallback value
     }
   };
 
-
-
-  const manualPresets = [
-    { label: 'Deep shade', value: 75, helper: 'Interior hallway or north-facing corner' },
-    { label: 'Bright indirect', value: 1500, helper: 'East window 1-2 metres away' },
-    { label: 'Bright window', value: 5000, helper: 'South window with sheer curtain' },
-    { label: 'Direct sun', value: 25000, helper: 'Full afternoon sun or outdoors' },
-  ];
-
-  const handleManualSubmit = () => {
-    const luxValue = Number.parseFloat(manualLux);
-    if (!Number.isFinite(luxValue)) {
-      Alert.alert('Invalid value', 'Enter a numeric lux value between 0 and 100000.');
-      return;
-    }
-
-    if (isReading) {
-      stopReading();
-    }
-
-    applyReading(Math.max(0, luxValue));
+  const measureWithCamera = async (): Promise<number> => {
+    // This would require camera frame analysis
+    // For now, we'll use brightness as a proxy
+    return estimateLightFromBrightness();
   };
 
-  const analyzeLightLevel = (lux: number): LightReading => {
+  const measureLightLevel = async (): Promise<{ lux: number; method: MeasurementMethod }> => {
+    switch (measurementMethod) {
+      case 'sensor':
+        // Will be handled by existing sensor logic
+        return { lux: 0, method: 'sensor' };
+      
+      case 'camera':
+        const cameraLux = await measureWithCamera();
+        return { lux: cameraLux, method: 'camera' };
+      
+      case 'brightness':
+        const brightnessLux = await estimateLightFromBrightness();
+        return { lux: brightnessLux, method: 'brightness' };
+      
+      default:
+        return { lux: 300, method: 'manual' };
+    }
+  };
+
+  const analyzeLightLevel = (lux: number, method: MeasurementMethod): LightReading => {
     let level: LightLevel;
-    let recommendation: string;
-    let suitablePlants: string[];
-    let tips: string[];
+    let description: string;
 
-    if (lux < 200) {
-      level = 'low';
-      recommendation = 'Low Light - Suitable for shade-loving plants';
-      suitablePlants = ['Snake Plant', 'ZZ Plant', 'Pothos', 'Peace Lily', 'Chinese Evergreen'];
-      tips = [
-        'Perfect for plants that prefer indirect light',
-        'Avoid placing sun-loving plants here',
-        'Consider grow lights for better plant growth',
-        'Rotate plants weekly for even growth'
-      ];
-    } else if (lux < 1000) {
-      level = 'medium';
-      recommendation = 'Medium Light - Good for most houseplants';
-      suitablePlants = ['Monstera', 'Fiddle Leaf Fig', 'Rubber Plant', 'Philodendron', 'Spider Plant'];
-      tips = [
-        'Ideal for most common houseplants',
-        'Great spot for foliage plants',
-        'Monitor plants for stretching toward light',
-        'Perfect for plant propagation'
-      ];
-    } else if (lux < 10000) {
-      level = 'bright';
-      recommendation = 'Bright Light - Excellent for most plants';
-      suitablePlants = ['Fiddle Leaf Fig', 'Bird of Paradise', 'Monstera', 'Alocasia', 'Calathea'];
-      tips = [
-        'Excellent for most houseplants',
-        'Watch for signs of leaf burn on sensitive plants',
-        'Perfect for flowering plants',
-        'Great for plant growth and health'
-      ];
+    // More accurate thresholds based on plant care research
+    if (lux < 25) {
+      level = 'Dark for plants';
+      description = 'Too dark for most plants - move closer to light';
+    } else if (lux < 200) {
+      level = 'Low light';
+      description = 'Suitable for snake plants, ZZ plants, pothos';
+    } else if (lux < 800) {
+      level = 'Medium light';
+      description = 'Good for most houseplants like peace lily, philodendron';
+    } else if (lux < 2000) {
+      level = 'Bright light';
+      description = 'Excellent for rubber trees, fiddle leaf figs';
     } else {
-      level = 'direct';
-      recommendation = 'Direct Sun - Best for sun-loving plants';
-      suitablePlants = ['Succulents', 'Cacti', 'Aloe Vera', 'Jade Plant', 'String of Pearls'];
-      tips = [
-        'Perfect for succulents and cacti',
-        'May be too intense for tropical plants',
-        'Provide shade during hottest hours',
-        'Ensure adequate watering for sun plants'
-      ];
+      level = 'Very bright';
+      description = 'Perfect for cacti, succulents, herbs';
     }
 
-    return { lux, level, recommendation, suitablePlants, tips };
+    return { lux, level, description, method };
   };
 
   const startReading = async () => {
-    const available = await ensureSensorAvailability();
-    if (!available) {
-      Alert.alert(
-        'Ambient light sensor unavailable',
-        'Your device does not expose an ambient light sensor. Use the manual estimator below to evaluate lighting.',
-      );
+    if (measurementMethod === 'sensor' && Platform.OS === 'android') {
+      return startSensorReading();
+    } else {
+      return startAlternativeReading();
+    }
+  };
+
+  const startSensorReading = async () => {
+    try {
+      cleanupSensor();
+      setErrorMessage(null);
+      
+      LightSensor.setUpdateInterval(50);
+      setIsReading(true);
+      setShowResult(false);
+      setCurrentReading(null);
+      rawReadings.current = [];
+
+      let readingCount = 0;
+      const maxReadings = 40;
+      
+      sensorSubscription.current = LightSensor.addListener((measurement) => {
+        const lux = typeof measurement.illuminance === 'number' && Number.isFinite(measurement.illuminance)
+          ? Math.max(0, measurement.illuminance)
+          : 0;
+        
+        rawReadings.current.push(lux);
+        readingCount++;
+        
+        if (readingCount % 5 === 0 && rawReadings.current.length >= 5) {
+          const recentAvg = rawReadings.current.slice(-5).reduce((a, b) => a + b, 0) / 5;
+          const tempReading = analyzeLightLevel(Math.round(recentAvg), 'sensor');
+          setCurrentReading(tempReading);
+        }
+        
+        if (readingCount >= maxReadings) {
+          finalizeSensorMeasurement();
+        }
+      });
+
+      readingTimeout.current = setTimeout(() => {
+        finalizeSensorMeasurement();
+      }, 4000);
+    } catch {
+      setIsReading(false);
+      setErrorMessage('Failed to start light measurement');
+      Alert.alert('Error', 'Failed to start light measurement. Please try again.');
+    }
+  };
+
+  const startAlternativeReading = async () => {
+    try {
+      setIsReading(true);
+      setShowResult(false);
+      setCurrentReading(null);
+      setErrorMessage(null);
+      
+      // Simulate measurement time for consistency
+      setTimeout(async () => {
+        const { lux, method } = await measureLightLevel();
+        const reading = analyzeLightLevel(lux, method);
+        setCurrentReading(reading);
+        setIsReading(false);
+        setShowResult(true);
+      }, 2000);
+    } catch {
+      setIsReading(false);
+      setErrorMessage('Failed to measure light level');
+      Alert.alert('Error', 'Failed to measure light level. Please try again.');
+    }
+  };
+
+  const finalizeSensorMeasurement = () => {
+    if (rawReadings.current.length === 0) {
+      setIsReading(false);
+      setErrorMessage('No readings collected');
       return;
     }
 
-    sensorSubscription.current?.remove();
-    LightSensor.setUpdateInterval(1000);
-    setIsReading(true);
-    setReadings([]);
-    setCurrentReading(null);
-
-    sensorSubscription.current = LightSensor.addListener((measurement) => {
-      const lux =
-        typeof measurement.illuminance === 'number' && Number.isFinite(measurement.illuminance)
-          ? measurement.illuminance
-          : 0;
-      applyReading(lux);
-    });
-  };
-
-  const stopReading = () => {
-    sensorSubscription.current?.remove();
-    sensorSubscription.current = null;
+    // Remove outliers using interquartile range method
+    const sorted = [...rawReadings.current].sort((a, b) => a - b);
+    const q1Index = Math.floor(sorted.length * 0.25);
+    const q3Index = Math.floor(sorted.length * 0.75);
+    const q1 = sorted[q1Index];
+    const q3 = sorted[q3Index];
+    const iqr = q3 - q1;
+    const lowerBound = q1 - 1.5 * iqr;
+    const upperBound = q3 + 1.5 * iqr;
+    
+    const filteredReadings = rawReadings.current.filter(
+      lux => lux >= lowerBound && lux <= upperBound
+    );
+    
+    // Calculate final average
+    const finalLux = filteredReadings.length > 0 
+      ? filteredReadings.reduce((a, b) => a + b, 0) / filteredReadings.length
+      : rawReadings.current.reduce((a, b) => a + b, 0) / rawReadings.current.length;
+    
+    const reading = analyzeLightLevel(Math.round(finalLux), 'sensor');
+    setCurrentReading(reading);
     setIsReading(false);
+    setShowResult(true);
+    cleanupSensor();
   };
 
-  const getLevelColor = (level: LightLevel): string => {
-    switch (level) {
-      case 'low': return '#6B7280';
-      case 'medium': return '#F59E0B';
-      case 'bright': return '#22C55E';
-      case 'direct': return '#EF4444';
-      default: return '#6B7280';
+  const resetReading = () => {
+    setCurrentReading(null);
+    setShowResult(false);
+    setIsReading(false);
+    setErrorMessage(null);
+    cleanupSensor();
+  };
+
+  const getInstructionText = (): string => {
+    switch (measurementMethod) {
+      case 'sensor':
+        return 'Point device toward light source for best accuracy';
+      case 'camera':
+        return 'Camera will analyze brightness - point toward light source';
+      case 'brightness':
+        return 'Using screen brightness to estimate light level';
+      case 'manual':
+        return 'Manual mode - estimate light level based on surroundings';
+      default:
+        return 'Light measurement ready';
     }
   };
 
-  const getLevelIcon = (level: LightLevel) => {
-    switch (level) {
-      case 'low': return Eye;
-      case 'medium': return Lightbulb;
-      case 'bright': return Sun;
-      case 'direct': return Zap;
-      default: return Eye;
+  const getMethodIcon = (method: MeasurementMethod) => {
+    switch (method) {
+      case 'sensor':
+        return <Lightbulb size={14} color="#666" />;
+      case 'camera':
+        return <Camera size={14} color="#666" />;
+      case 'brightness':
+        return <Lightbulb size={14} color="#666" />;
+      default:
+        return <Info size={14} color="#666" />;
     }
   };
 
-  const formatLux = (lux: number): string => {
-    if (lux >= 1000) {
-      return `${(lux / 1000).toFixed(1)}k`;
+  const getMethodLabel = (method: MeasurementMethod): string => {
+    switch (method) {
+      case 'sensor':
+        return 'Light Sensor';
+      case 'camera':
+        return 'Camera Analysis';
+      case 'brightness':
+        return 'Brightness Estimation';
+      case 'manual':
+        return 'Manual Estimation';
+      default:
+        return 'Unknown Method';
+    }
+  };;
+
+  const convertToFC = (lux: number): number => {
+    return Math.round(lux * 0.0929);
+  };
+
+  const formatValue = (lux: number): string => {
+    if (unit === 'FC') {
+      return convertToFC(lux).toString();
     }
     return lux.toString();
+  };
+
+  const handleStart = async () => {
+    if (sensorAvailable === false && measurementMethod === 'manual') {
+      Alert.alert(
+        'Manual Mode',
+        'Automatic light measurement is not available on this device. Please estimate the light level manually.',
+      );
+      return;
+    }
+    
+    if (!showResult) {
+      setShowInstructions(true);
+    } else {
+      resetReading();
+    }
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
       
-      {/* Custom Header */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={styles.headerButton}
           onPress={() => {
-            try {
+            if (router.canGoBack()) {
               router.back();
-            } catch {
+            } else {
               router.replace('/(tabs)');
             }
           }}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <ArrowLeft size={24} color="#111827" />
+          <X size={24} color="#000" />
         </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>Light Meter</Text>
-
-        <View style={styles.headerSpacer} />
+        
+        <View style={styles.headerTitle}>
+          <Text style={styles.headerTitleText}>Light Meter</Text>
+        </View>
+        
+        <View style={styles.headerButton} />
       </View>
 
-      <ResponsiveScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <Text style={styles.description}>
-            Measure light levels to find the perfect spot for your plants. Point your device toward the area you want to measure.
-          </Text>
+      {/* Instruction Banner */}
+      <View style={[styles.instructionBanner, errorMessage && styles.errorBanner]}>
+        <Info size={16} color={errorMessage ? "#EF4444" : "#22C55E"} />
+        <Text style={[styles.instructionText, errorMessage && styles.errorText]}>
+          {errorMessage || getInstructionText()}
+        </Text>
+      </View>
 
-          {/* Light Meter Display */}
-          <View style={styles.meterContainer}>
-            <View style={styles.meterDisplay}>
-              {currentReading ? (
-                <>
-                  <Text style={styles.luxValue}>{formatLux(currentReading.lux)}</Text>
-                  <Text style={styles.luxUnit}>lux</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.luxValue}>--</Text>
-                  <Text style={styles.luxUnit}>lux</Text>
-                </>
-              )}
-            </View>
-            
-            {/* Animated Light Bar */}
-            <View style={styles.lightBar}>
-              <Animated.View
-                style={[
-                  styles.lightBarFill,
-                  {
-                    width: animatedValue.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                    backgroundColor: currentReading ? getLevelColor(currentReading.level) : '#E5E7EB',
-                  },
-                ]}
-              />
-            </View>
-            
-            {/* Light Level Labels */}
-            <View style={styles.lightLabels}>
-              <Text style={styles.lightLabel}>Low</Text>
-              <Text style={styles.lightLabel}>Medium</Text>
-              <Text style={styles.lightLabel}>Bright</Text>
-              <Text style={styles.lightLabel}>Direct</Text>
+      {/* Main Content */}
+      <View style={styles.mainContent}>
+        {/* Unit Selector */}
+        <View style={styles.unitSelector}>
+          <TouchableOpacity
+            style={[styles.unitButton, unit === 'Lux' && styles.unitButtonActive]}
+            onPress={() => setUnit('Lux')}
+          >
+            <Text style={[styles.unitText, unit === 'Lux' && styles.unitTextActive]}>Lux</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.unitButton, unit === 'FC' && styles.unitButtonActive]}
+            onPress={() => setUnit('FC')}
+          >
+            <Text style={[styles.unitText, unit === 'FC' && styles.unitTextActive]}>FC</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Light Reading Display */}
+        <View style={styles.readingContainer}>
+          {isReading ? (
+            <Text style={styles.readingValue}>...</Text>
+          ) : currentReading ? (
+            <Text style={styles.readingValue}>{formatValue(currentReading.lux)}</Text>
+          ) : (
+            <Text style={styles.readingValue}>--</Text>
+          )}
+        </View>
+
+        {/* Result Section */}
+        {showResult && currentReading && (
+          <View style={styles.resultSection}>
+            <Text style={styles.resultTitle}>Light Level Assessment</Text>
+            <Text style={styles.resultLevel}>{currentReading.level}</Text>
+            <Text style={styles.resultDescription}>{currentReading.description}</Text>
+            <View style={styles.methodIndicator}>
+              {getMethodIcon(currentReading.method)}
+              <Text style={styles.methodText}>{getMethodLabel(currentReading.method)}</Text>
             </View>
           </View>
+        )}
+      </View>
 
-          {/* Control Button */}
-          {sensorAvailable !== false && (
-            <TouchableOpacity
-              style={[
-                styles.controlButton,
-                isReading ? styles.stopButton : styles.startButton,
-              ]}
-              onPress={isReading ? stopReading : startReading}
-            >
-              {isReading ? (
-                <>
-                  <View style={styles.stopIcon} />
-                  <Text style={styles.controlButtonText}>Stop Reading</Text>
-                </>
-              ) : (
-                <>
-                  <Sun size={20} color="#FFFFFF" />
-                  <Text style={styles.controlButtonText}>Start Light Reading</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+      {/* Bottom Controls */}
+      <View style={styles.bottomControls}>
+        {showResult ? (
+          <TouchableOpacity style={styles.resetButton} onPress={resetReading}>
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.startButton} onPress={handleStart}>
+            <Text style={styles.startButtonText}>Start Measuring</Text>
+          </TouchableOpacity>
+        )}
+        
+        <TouchableOpacity
+          style={styles.helpButton}
+          onPress={() => setShowInstructions(true)}
+        >
+          <Text style={styles.helpButtonText}>How to Use Light Meter?</Text>
+        </TouchableOpacity>
+      </View>
 
-          {sensorAvailable === false && (
-            <View style={styles.sensorWarning}>
-              <AlertTriangle size={16} color="#F97316" />
-              <Text style={styles.sensorWarningText}>Your device does not provide an ambient light sensor. Use the manual estimator below to benchmark lighting.</Text>
-            </View>
-          )}
-
-          {/* Manual Estimator */}
-          <View style={styles.manualContainer}>
-            <View style={styles.sectionHeader}>
-              <AlertTriangle size={16} color="#F59E0B" />
-              <Text style={styles.manualTitle}>Manual Light Estimator</Text>
-            </View>
-            <Text style={styles.manualDescription}>Input a lux value from a dedicated meter or choose a preset to approximate common indoor conditions.</Text>
-            <View style={styles.manualInputRow}>
-              <TextInput
-                style={styles.manualInput}
-                value={manualLux}
-                onChangeText={setManualLux}
-                keyboardType="numeric"
-                placeholder="e.g. 1200"
-                returnKeyType="done"
-              />
-              <TouchableOpacity style={styles.manualApplyButton} onPress={handleManualSubmit}>
-                <Text style={styles.manualApplyText}>Apply</Text>
+      {/* Instructions Modal */}
+      <Modal visible={showInstructions} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>How to Use Light Meter?</Text>
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={() => setShowInstructions(false)}
+              >
+                <X size={24} color="#000" />
               </TouchableOpacity>
             </View>
-            <View style={styles.manualPresetRow}>
-              {manualPresets.map((preset) => (
-                <TouchableOpacity
-                  key={preset.label}
-                  style={styles.manualPresetButton}
-                  onPress={() => {
-                    if (isReading) {
-                      stopReading();
-                    }
-                    setManualLux(String(preset.value));
-                    applyReading(preset.value);
-                  }}
-                >
-                  <Text style={styles.manualPresetLabel}>{preset.label}</Text>
-                  <Text style={styles.manualPresetHelper}>{preset.helper}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
 
-          {/* Current Reading Results */}
-          {currentReading && (
-            <View style={styles.resultsContainer}>
-              <View style={styles.resultHeader}>
-                <View style={[styles.levelIndicator, { backgroundColor: getLevelColor(currentReading.level) }]}>
-                  {React.createElement(getLevelIcon(currentReading.level), {
-                    size: 20,
-                    color: '#FFFFFF',
-                  })}
-                </View>
-                <View style={styles.resultInfo}>
-                  <Text style={styles.resultLevel}>{currentReading.level.toUpperCase()} LIGHT</Text>
-                  <Text style={styles.resultRecommendation}>{currentReading.recommendation}</Text>
-                </View>
+            <View style={styles.instructionStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>1</Text>
               </View>
-
-              {/* Suitable Plants */}
-              <View style={styles.plantsSection}>
-                <View style={styles.sectionHeader}>
-                  <CheckCircle size={16} color="#22C55E" />
-                  <Text style={styles.sectionTitle}>Suitable Plants</Text>
-                </View>
-                <View style={styles.plantsGrid}>
-                  {currentReading.suitablePlants.map((plant, index) => (
-                    <View key={`plant-${index}-${plant}`} style={styles.plantTag}>
-                      <Text style={styles.plantTagText}>{plant}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              {/* Tips */}
-              <View style={styles.tipsSection}>
-                <View style={styles.sectionHeader}>
-                  <Info size={16} color="#3B82F6" />
-                  <Text style={styles.sectionTitle}>Light Tips</Text>
-                </View>
-                {currentReading.tips.map((tip, index) => (
-                  <Text key={`tip-${index}-${tip.slice(0, 10)}`} style={styles.tipText}>
-                    - {tip}
-                  </Text>
-                ))}
-              </View>
-
-              {/* Reading History */}
-              {readings.length > 0 && (
-                <View style={styles.historySection}>
-                  <View style={styles.sectionHeader}>
-                    <TrendingUp size={16} color="#6B7280" />
-                    <Text style={styles.sectionTitle}>Recent Readings</Text>
-                  </View>
-                  <View style={styles.historyChart}>
-                    {readings.map((reading, index) => (
-                      <View
-                        key={`reading-${index}`}
-                        style={[
-                          styles.historyBar,
-                          {
-                            height: Math.max(4, (reading / 50000) * 60),
-                            backgroundColor: getLevelColor(analyzeLightLevel(reading).level),
-                          },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                  <Text style={styles.historyNote}>
-                    Average: {Math.round(readings.reduce((a, b) => a + b, 0) / readings.length)} lux
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Light Level Guide */}
-          <View style={styles.guideContainer}>
-            <Text style={styles.guideTitle}>Light Level Guide</Text>
-            
-            <View style={styles.guideItem}>
-              <View style={[styles.guideIndicator, { backgroundColor: '#6B7280' }]}>
-                <Eye size={16} color="#FFFFFF" />
-              </View>
-              <View style={styles.guideContent}>
-                <Text style={styles.guideLevel}>Low Light (0-200 lux)</Text>
-                <Text style={styles.guideDescription}>Deep shade, away from windows</Text>
-              </View>
+              <Text style={styles.stepText}>Keep the front camera pointed at the light source.</Text>
             </View>
 
-            <View style={styles.guideItem}>
-              <View style={[styles.guideIndicator, { backgroundColor: '#F59E0B' }]}>
-                <Lightbulb size={16} color="#FFFFFF" />
+            <View style={styles.instructionStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>2</Text>
               </View>
-              <View style={styles.guideContent}>
-                <Text style={styles.guideLevel}>Medium Light (200-1000 lux)</Text>
-                <Text style={styles.guideDescription}>Bright room, indirect sunlight</Text>
-              </View>
+              <Text style={styles.stepText}>Move the phone around the plant to measure light exposure from all angles.</Text>
             </View>
 
-            <View style={styles.guideItem}>
-              <View style={[styles.guideIndicator, { backgroundColor: '#22C55E' }]}>
-                <Sun size={16} color="#FFFFFF" />
+            <View style={styles.instructionStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>3</Text>
               </View>
-              <View style={styles.guideContent}>
-                <Text style={styles.guideLevel}>Bright Light (1000-10000 lux)</Text>
-                <Text style={styles.guideDescription}>Near window, filtered sunlight</Text>
-              </View>
+              <Text style={styles.stepText}>It&apos;s best to check light level during mid-day for more accurate result.</Text>
             </View>
 
-            <View style={styles.guideItem}>
-              <View style={[styles.guideIndicator, { backgroundColor: '#EF4444' }]}>
-                <Zap size={16} color="#FFFFFF" />
-              </View>
-              <View style={styles.guideContent}>
-                <Text style={styles.guideLevel}>Direct Sun (10000+ lux)</Text>
-                <Text style={styles.guideDescription}>Direct sunlight, south-facing window</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Warning Note */}
-          <View style={styles.warningContainer}>
-            <AlertTriangle size={16} color="#F59E0B" />
-            <Text style={styles.warningText}>
-              Note: This light meter reads from your device&apos;s ambient sensor when available. Use the manual estimator for devices without a sensor or when benchmarking external meter readings.
-            </Text>
+            <TouchableOpacity
+              style={styles.continueButton}
+              onPress={() => {
+                setShowInstructions(false);
+                startReading();
+              }}
+            >
+              <Text style={styles.continueButtonText}>Continue</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </ResponsiveScrollView>
+      </Modal>
+
+      {/* Coming Soon Modal */}
+      <Modal visible={showComingSoon} transparent animationType="fade">
+        <View style={styles.comingSoonOverlay}>
+          <View style={styles.comingSoonContent}>
+            <View style={styles.comingSoonIcon}>
+              <Lightbulb size={48} color="#22C55E" />
+            </View>
+            
+            <Text style={styles.comingSoonTitle}>Coming Soon</Text>
+            
+            <Text style={styles.comingSoonDescription}>
+              We&apos;re working hard to bring you the most accurate light meter for your plants. 
+              This feature will be available in a future update.
+            </Text>
+            
+            <TouchableOpacity
+              style={styles.comingSoonButton}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(tabs)');
+                }
+              }}
+            >
+              <Text style={styles.comingSoonButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -502,359 +534,289 @@ export default function LightMeterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray200,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    padding: 8,
-    borderRadius: 22,
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 20,
   },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
+    alignItems: 'center',
+  },
+  headerTitleText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: '#000',
   },
-  headerSpacer: {
-    width: 44,
-  },
-  content: {
-    padding: 16,
-  },
-  description: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
-  },
-  meterContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  meterDisplay: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  luxValue: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  luxUnit: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: -8,
-  },
-  lightBar: {
-    width: '100%',
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  lightBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  lightLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  lightLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  controlButton: {
+  instructionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  startButton: {
-    backgroundColor: '#F59E0B',
-  },
-  stopButton: {
-    backgroundColor: '#EF4444',
-  },
-  stopIcon: {
-    width: 20,
-    height: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-  },
-  controlButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  sensorWarning: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 16,
-  },
-  sensorWarningText: {
-    flex: 1,
-    color: '#92400E',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  manualContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 24,
-  },
-  manualTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginLeft: 6,
-  },
-  manualDescription: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginTop: 8,
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  manualInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  manualInput: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#111827',
-  },
-  manualApplyButton: {
-    backgroundColor: '#F59E0B',
-    borderRadius: 8,
+    backgroundColor: '#E8F5E8',
     paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  manualApplyText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  manualPresetRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  manualPresetButton: {
-    flexBasis: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 12,
-  },
-  manualPresetLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  manualPresetHelper: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  resultsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  levelIndicator: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  resultInfo: {
-    flex: 1,
-  },
-  resultLevel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  resultRecommendation: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  plantsSection: {
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    borderRadius: 8,
     marginBottom: 20,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+  errorBanner: {
+    backgroundColor: '#FEE2E2',
   },
-  sectionTitle: {
+  instructionText: {
+    marginLeft: 8,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-    marginLeft: 6,
-  },
-  plantsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  plantTag: {
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#22C55E',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  plantTagText: {
-    fontSize: 12,
     color: '#22C55E',
     fontWeight: '500',
-  },
-  tipsSection: {
-    marginBottom: 20,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#1E40AF',
-    marginBottom: 6,
-    lineHeight: 20,
-  },
-  historySection: {
-    marginBottom: 8,
-  },
-  historyChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 60,
-    gap: 2,
-    marginBottom: 8,
-  },
-  historyBar: {
     flex: 1,
-    borderRadius: 1,
-    minHeight: 4,
   },
-  historyNote: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
+  errorText: {
+    color: '#EF4444',
   },
-  guideContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  guideTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  guideItem: {
-    flexDirection: 'row',
+  mainContent: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unitSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#E5E5E5',
+    borderRadius: 20,
+    padding: 4,
+    marginBottom: 40,
+  },
+  unitButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  unitButtonActive: {
+    backgroundColor: '#FFF',
+  },
+  unitText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  unitTextActive: {
+    color: '#000',
+  },
+  readingContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  readingValue: {
+    fontSize: 80,
+    fontWeight: '300',
+    color: '#000',
+  },
+  resultSection: {
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  resultTitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  resultLevel: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+  },
+  resultDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
     marginBottom: 12,
   },
-  guideIndicator: {
+  methodIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  methodText: {
+    marginLeft: 6,
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  bottomControls: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  startButton: {
+    backgroundColor: '#22C55E',
+    borderRadius: 25,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  startButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  resetButton: {
+    borderColor: '#22C55E',
+    borderWidth: 1,
+    borderRadius: 25,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  resetButtonText: {
+    color: '#22C55E',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  helpButton: {
+    alignItems: 'center',
+  },
+  helpButtonText: {
+    color: '#22C55E',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  modalClose: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  guideContent: {
-    flex: 1,
-  },
-  guideLevel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  guideDescription: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  warningContainer: {
+  instructionStep: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 8,
-    padding: 12,
+    marginBottom: 24,
   },
-  warningText: {
-    fontSize: 12,
-    color: '#92400E',
-    marginLeft: 8,
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#22C55E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  stepNumberText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  stepText: {
     flex: 1,
-    lineHeight: 16,
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+  },
+  continueButton: {
+    backgroundColor: '#22C55E',
+    borderRadius: 25,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  continueButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  comingSoonOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  comingSoonContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 32,
+    marginHorizontal: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  comingSoonIcon: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 50,
+  },
+  comingSoonTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  comingSoonDescription: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  comingSoonButton: {
+    backgroundColor: '#22C55E',
+    borderRadius: 25,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  comingSoonButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
-
-
-

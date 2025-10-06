@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Platform, Share as RNShare, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Platform, Alert } from 'react-native';
 import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { 
@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScanningOverlay from '@/components/ScanningOverlay';
 import HealthCheckModal from '@/components/HealthCheckModal';
 import { Colors, getConfidenceColor } from '@/constants/colors';
+import * as Sharing from 'expo-sharing';
 
 export default function PlantDetailsScreen() {
   const { id, source } = useLocalSearchParams<{ id?: string | string[]; source?: string }>();
@@ -73,22 +74,19 @@ export default function PlantDetailsScreen() {
     if (!identification) return;
     
     try {
-      const shareContent = {
-        message: `Check out this plant I identified: ${identification.plantName} (${identification.scientificName})\n\nDescription: ${identification.description}\n\nCare Instructions: ${identification.careInstructions}`,
-        title: `Plant Identification: ${identification.plantName}`,
-      };
+      const shareContent = `Check out this plant I identified: ${identification.plantName} (${identification.scientificName})\n\nDescription: ${identification.description}\n\nCare Instructions: ${identification.careInstructions}`;
       
-      if (Platform.OS !== 'web') {
-        await RNShare.share(shareContent);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(shareContent, {
+          dialogTitle: `Plant Identification: ${identification.plantName}`,
+        });
       } else {
-        // Web fallback - copy to clipboard
-        if (navigator.clipboard) {
-          await navigator.clipboard.writeText(shareContent.message);
-          console.log('Plant details copied to clipboard');
-        }
+        // Fallback for platforms where sharing is not available
+        Alert.alert('Share', 'Sharing is not available on this device');
       }
     } catch (error) {
       console.error('Error sharing:', error);
+      Alert.alert('Error', 'Failed to share plant details');
     }
   };
 

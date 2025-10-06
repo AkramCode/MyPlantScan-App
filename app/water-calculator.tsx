@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Calculator,
-  Droplets,
   Flower2,
   Info,
   Leaf,

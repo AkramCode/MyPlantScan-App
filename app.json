@@ -38,7 +38,9 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.HIGH_SAMPLING_RATE_SENSORS",
+        "android.permission.WRITE_SETTINGS"
       ],
       "intentFilters": [
         {
@@ -131,6 +133,12 @@
           "icon": "./assets/images/icon.png",
           "color": "#10B981",
           "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow $(PRODUCT_NAME) to access your device motion and light sensors for plant care measurements"
         }
       ]
     ],
