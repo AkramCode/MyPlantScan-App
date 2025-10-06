@@ -19,7 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, getHealthStatusColor, getSeverityColor } from '@/constants/colors';
 import { trackEvent } from '@/lib/analytics';
-import { buildSharePayload } from '@/lib/share';
+import { buildSharePayload, ENABLE_SHARE_BUTTONS } from '@/lib/share';
 import { useSettings } from '@/providers/settings-provider';
 export default function HealthReportScreen() {
   const { id, plantId, source } = useLocalSearchParams<{ id?: string; plantId?: string; source?: string }>();
@@ -356,9 +356,11 @@ export default function HealthReportScreen() {
           </TouchableOpacity>
           
           {/* Share Button Overlay */}
-          <TouchableOpacity style={[styles.overlayShareButton, { top: insets.top + 16 }]} onPress={shareReport}>
-            <ShareIcon size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          {ENABLE_SHARE_BUTTONS && (
+            <TouchableOpacity style={[styles.overlayShareButton, { top: insets.top + 16 }]} onPress={shareReport}>
+              <ShareIcon size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
           
           <View style={styles.imageOverlay}>
             <View style={styles.statusBadge}>

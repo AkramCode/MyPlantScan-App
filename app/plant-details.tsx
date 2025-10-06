@@ -32,7 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScanningOverlay from '@/components/ScanningOverlay';
 import HealthCheckModal from '@/components/HealthCheckModal';
 import { Colors, getConfidenceColor } from '@/constants/colors';
-import { buildSharePayload } from '@/lib/share';
+import { buildSharePayload, ENABLE_SHARE_BUTTONS } from '@/lib/share';
 export default function PlantDetailsScreen() {
   const { id, source } = useLocalSearchParams<{ id?: string | string[]; source?: string }>();
   const { identifications, addToGarden, userPlants, isAnalyzingHealth, analyzeHealth } = usePlantStore();
@@ -174,12 +174,14 @@ export default function PlantDetailsScreen() {
               >
                 <ArrowLeft size={24} color="#FFFFFF" />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.shareButton, { top: insets.top + 16 }]}
-                onPress={handleShare}
-              >
-                <ShareIcon size={24} color="#FFFFFF" />
-              </TouchableOpacity>
+              {ENABLE_SHARE_BUTTONS && (
+                <TouchableOpacity
+                  style={[styles.shareButton, { top: insets.top + 16 }]}
+                  onPress={handleShare}
+                >
+                  <ShareIcon size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
             </View>
           )}
         >
