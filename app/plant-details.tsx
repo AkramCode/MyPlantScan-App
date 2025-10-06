@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Platform, Alert, Share } from 'react-native';
 import ResponsiveScrollView from '@/components/layout/ResponsiveScrollView';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { 
@@ -12,7 +12,7 @@ import {
   Calendar,
   Heart,
   ArrowLeft,
-  Share,
+  Share as ShareIcon,
   MapPin,
   Thermometer,
   Scissors,
@@ -32,8 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScanningOverlay from '@/components/ScanningOverlay';
 import HealthCheckModal from '@/components/HealthCheckModal';
 import { Colors, getConfidenceColor } from '@/constants/colors';
-import * as Sharing from 'expo-sharing';
-
+import { buildSharePayload } from '@/lib/share';
 export default function PlantDetailsScreen() {
   const { id, source } = useLocalSearchParams<{ id?: string | string[]; source?: string }>();
   const { identifications, addToGarden, userPlants, isAnalyzingHealth, analyzeHealth } = usePlantStore();
@@ -71,19 +70,54 @@ export default function PlantDetailsScreen() {
   };
 
   const handleShare = async () => {
-    if (!identification) return;
-    
+    if (!identification) {
+      return;
+    }
+
+    const { title, message, url } = buildSharePayload({
+      title: `Plant Identification: ${identification.plantName}`,
+      message: [
+        `Check out this plant I identified: ${identification.plantName} (${identification.scientificName})`,
+        `Description: ${identification.description}`,
+        `Care Instructions: ${identification.careInstructions}`,
+      ].join('\n\n'),
+    });
+
     try {
-      const shareContent = `Check out this plant I identified: ${identification.plantName} (${identification.scientificName})\n\nDescription: ${identification.description}\n\nCare Instructions: ${identification.careInstructions}`;
-      
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(shareContent, {
-          dialogTitle: `Plant Identification: ${identification.plantName}`,
-        });
-      } else {
-        // Fallback for platforms where sharing is not available
+      if (Platform.OS === 'web') {
+        const nav = (globalThis as {
+          navigator?: {
+            share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+            clipboard?: { writeText?: (text: string) => Promise<void> };
+          };
+        }).navigator;
+
+        const shareData = {
+          title,
+          text: message,
+          url,
+        };
+
+        if (nav?.share) {
+          await nav.share(shareData);
+          return;
+        }
+
+        if (nav?.clipboard?.writeText) {
+          await nav.clipboard.writeText(`${message}\n\n${url}`);
+          Alert.alert('Share', 'Plant details copied to clipboard');
+          return;
+        }
+
         Alert.alert('Share', 'Sharing is not available on this device');
+        return;
       }
+
+      await Share.share({
+        title,
+        message,
+        url,
+      });
     } catch (error) {
       console.error('Error sharing:', error);
       Alert.alert('Error', 'Failed to share plant details');
@@ -144,7 +178,7 @@ export default function PlantDetailsScreen() {
                 style={[styles.shareButton, { top: insets.top + 16 }]}
                 onPress={handleShare}
               >
-                <Share size={24} color="#FFFFFF" />
+                <ShareIcon size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           )}
@@ -156,7 +190,7 @@ export default function PlantDetailsScreen() {
                 AI-assisted identification may be incorrect. Use this as guidance and verify with an expert when necessary.
               </Text>
               <TouchableOpacity onPress={() => setShowAIDisclaimer(false)} style={styles.disclaimerClose}>
-                <Text style={styles.disclaimerCloseText}>×</Text>
+                <Text style={styles.disclaimerCloseText}>{'\u00D7'}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1166,6 +1200,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
-
-

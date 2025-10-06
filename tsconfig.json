@@ -22,7 +22,9 @@
                     ".expo/types/**/*.ts",
                     "expo-env.d.ts"
                 ],
-    "exclude": [
+    "exclude":  [
+                    "node_modules",
+                    "**/node_modules/**",
                     "backend/**/*"
                 ]
 }

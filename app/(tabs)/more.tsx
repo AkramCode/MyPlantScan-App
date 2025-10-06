@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, Linking, Share, Modal } from 'react-native';
 import { Info, Star, Share2, HelpCircle, Trash2, ChevronRight, Settings, Shield, FileText, Droplets, Sun, User, LogIn, LogOut } from 'lucide-react-native';
 import { usePlantStore } from '@/hooks/plant-store';
+import { buildSharePayload } from '@/lib/share';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -105,24 +106,44 @@ export default function MoreScreen() {
 
   const handleShare = async () => {
     try {
-      const shareContent = {
-        message: 'Check out MyPlantScan! AI-powered plant identification and health analysis app. Discover and care for plants like never before!',
+      const { title, message, url } = buildSharePayload({
         title: 'MyPlantScan - AI Plant Identification',
-        url: Platform.OS === 'web' ? window.location.href : undefined,
-      };
+        message: 'Check out MyPlantScan! AI-powered plant identification and health analysis app. Discover and care for plants like never before!',
+      });
 
-      if (Platform.OS !== 'web') {
-        await Share.share(shareContent);
-      } else {
-        if (navigator.share) {
-          await navigator.share(shareContent);
-        } else {
-          // Fallback for web browsers without native sharing
-          const text = `${shareContent.message} ${shareContent.url || ''}`;
-          await navigator.clipboard.writeText(text);
-          Alert.alert('Copied!', 'Share message copied to clipboard.');
+      if (Platform.OS === 'web') {
+        const nav = (globalThis as {
+          navigator?: {
+            share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+            clipboard?: { writeText?: (text: string) => Promise<void> };
+          };
+        }).navigator;
+        const shareData = {
+          title,
+          text: message,
+          url,
+        };
+
+        if (nav?.share) {
+          await nav.share(shareData);
+          return;
         }
+
+        if (nav?.clipboard?.writeText) {
+          await nav.clipboard.writeText(`${message}\n\n${url}`);
+          Alert.alert('Share', 'Share message copied to clipboard.');
+          return;
+        }
+
+        Alert.alert('Share', 'Sharing is not available on this device');
+        return;
       }
+
+      await Share.share({
+        title,
+        message,
+        url,
+      });
     } catch (error) {
       console.error('Error sharing:', error);
       if (Platform.OS !== 'web') {
@@ -244,44 +265,9 @@ export default function MoreScreen() {
     );
   };
 
-  const handleExportData = async () => {
-    try {
-      const allData = {
-        identifications,
-        userPlants,
-        healthRecords,
-        exportDate: new Date().toISOString(),
-        version: '1.0.0'
-      };
-      
-      const dataString = JSON.stringify(allData, null, 2);
-      
-      if (Platform.OS === 'web') {
-        // Web: Download as file
-        const blob = new Blob([dataString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `myplantscan-data-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        Alert.alert('Success', 'Your data has been downloaded as a JSON file.');
-      } else {
-        // Mobile: Share the data
-        await Share.share({
-          message: dataString,
-          title: 'MyPlantScan Data Export'
-        });
-      }
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      if (Platform.OS !== 'web') {
-        Alert.alert('Error', 'Failed to export data. Please try again.');
-      }
-    }
-  };
+  // Export feature removed: export was causing reliability problems on some platforms.
+  // If you want to reintroduce export in the future, implement a dedicated, tested ExportModal component
+  // that handles large payloads, images, and platform-specific file APIs.
 
   const toolItems = [
     {
@@ -347,13 +333,6 @@ export default function MoreScreen() {
   ];
 
   const dataItems = [
-    {
-      icon: Share2,
-      title: 'Export Data',
-      subtitle: 'Download your plant data',
-      onPress: handleExportData,
-      isDangerous: false,
-    },
     {
       icon: Trash2,
       title: 'Clear All Data',
